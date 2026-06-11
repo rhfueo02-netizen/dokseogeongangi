@@ -220,7 +220,7 @@
         <i class="ti ti-users" style="font-size:13px;"></i>
         <span id="hdr-code">——</span>
       </div>
-      <div class="group-badge" onclick="changeGroup()" title="그룹 변경" style="padding:5px 10px;font-size:11px;gap:4px;">
+      <div class="group-badge" onclick="openGroupModal()" title="그룹 변경" style="padding:5px 10px;font-size:11px;gap:4px;">
         <i class="ti ti-switch" style="font-size:13px;"></i>그룹변경
       </div>
     </div>
@@ -364,6 +364,29 @@
   </div>
 </div>
 
+<!-- MODAL: 그룹 변경 -->
+<div class="overlay" id="modal-group">
+  <div class="modal">
+    <div class="modal-title">🔄 그룹 변경</div>
+    <div class="form-group">
+      <label class="form-label">저장된 그룹</label>
+      <div id="saved-groups-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;"></div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label class="form-label">새 그룹 코드 입력</label>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="new-group-code" placeholder="예: AN0E7V" maxlength="6"
+          style="flex:1;letter-spacing:3px;font-weight:600;text-transform:uppercase;"
+          oninput="this.value=this.value.toUpperCase()" />
+        <button class="add-btn" onclick="addAndSwitchGroup()" style="flex-shrink:0;padding:10px 14px;">참여</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn-cancel" style="width:100%;" onclick="closeModal('modal-group')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: 책 수정 -->
 <div class="overlay" id="modal-edit">
   <div class="modal">
@@ -454,6 +477,8 @@ async function enterApp() {
   document.getElementById('hdr-name').textContent = S.myName + '의 독서 모임';
   document.getElementById('hdr-code').textContent = S.code;
   document.getElementById('share-code').textContent = S.code;
+  // 현재 그룹 저장
+  saveGroup(S.code, S.myName + '의 모임');
   // 멤버 등록 (이미 있으면 last_seen 업데이트)
   const existing = await sb.from('members').select('id').eq('group_code', S.code).eq('member_name', S.myName).single();
   if (existing.data) {
@@ -1023,14 +1048,62 @@ function logout() {
   location.reload();
 }
 
-function changeGroup() {
-  const newCode = prompt('변경할 그룹 코드를 입력해주세요:');
-  if (!newCode) return;
-  const code = newCode.trim().toUpperCase();
-  if (code.length < 4) { alert('코드가 너무 짧아요'); return; }
+function getSavedGroups() {
+  try { return JSON.parse(localStorage.getItem('dsg_groups') || '[]'); } catch { return []; }
+}
+
+function saveGroup(code, name) {
+  const groups = getSavedGroups();
+  if (!groups.find(g => g.code === code)) {
+    groups.push({ code, name: name || code });
+    localStorage.setItem('dsg_groups', JSON.stringify(groups));
+  }
+}
+
+function openGroupModal() {
+  // 현재 그룹 저장
+  if (S.code) saveGroup(S.code, S.myName + '의 모임');
+  renderSavedGroups();
+  openModal('modal-group');
+}
+
+function renderSavedGroups() {
+  const groups = getSavedGroups();
+  const el = document.getElementById('saved-groups-list');
+  if (!groups.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--brown-400);">저장된 그룹이 없어요</div>';
+    return;
+  }
+  el.innerHTML = groups.map(g => `
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid ${g.code === S.code ? 'var(--brown-400)' : 'var(--beige-200)'};border-radius:var(--radius-md);background:${g.code === S.code ? 'var(--beige-100)' : 'var(--cream)'};">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;color:var(--brown-800);letter-spacing:2px;">${g.code}</div>
+        <div style="font-size:11px;color:var(--brown-400);">${g.name}</div>
+      </div>
+      ${g.code === S.code
+        ? '<span style="font-size:11px;color:var(--sage);font-weight:600;">현재</span>'
+        : `<button onclick="switchToGroup('${g.code}')" style="font-size:12px;padding:5px 12px;border:1px solid var(--beige-300);border-radius:6px;background:var(--brown-800);color:var(--beige-100);cursor:pointer;">전환</button>`
+      }
+    </div>`).join('');
+}
+
+async function switchToGroup(code) {
   localStorage.setItem('dsg_code', code);
+  closeModal('modal-group');
   location.reload();
 }
+
+async function addAndSwitchGroup() {
+  const code = document.getElementById('new-group-code').value.trim().toUpperCase();
+  if (code.length < 4) { showToast('코드를 입력해주세요'); return; }
+  // 그룹 존재 확인
+  const { data, error } = await sb.from('groups').select('code').eq('code', code).single();
+  if (error || !data) { showToast('존재하지 않는 코드예요'); return; }
+  saveGroup(code, code + ' 모임');
+  switchToGroup(code);
+}
+
+function changeGroup() { openGroupModal(); }
 
 /* ── EDIT MODAL ── */
 let editRating = 0;
