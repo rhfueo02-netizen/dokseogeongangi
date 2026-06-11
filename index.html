@@ -1046,9 +1046,10 @@ async function updateBookStatus(id, status) {
 
 async function deleteBook(id) {
   if (!confirm('정말 삭제할까요?')) return;
-  const { error } = await sb.from('books').delete().eq('id', id);
+  const numId = Number(id);
+  const { error } = await sb.from('books').delete().eq('id', numId);
   if (error) { showToast('오류: ' + error.message); return; }
-  S.books = S.books.filter(b => b.id !== id);
+  S.books = S.books.filter(b => Number(b.id) !== numId);
   renderBooks();
   renderJourney();
   showToast('삭제됐어요');
@@ -1124,9 +1125,10 @@ function renderVotes() {
 
 async function deleteVote(id) {
   if (!confirm('투표 후보를 삭제할까요?')) return;
-  const { error } = await sb.from('votes').delete().eq('id', id);
+  const numId = Number(id);
+  const { error } = await sb.from('votes').delete().eq('id', numId);
   if (error) { showToast('오류: ' + error.message); return; }
-  S.votes = S.votes.filter(v => v.id !== id);
+  S.votes = S.votes.filter(v => Number(v.id) !== numId);
   renderVotes();
   showToast('삭제됐어요');
 }
@@ -1149,9 +1151,10 @@ function renderMeetings() {
 
 async function deleteMeeting(id) {
   if (!confirm('일정을 삭제할까요?')) return;
-  const { error } = await sb.from('meetings').delete().eq('id', id);
+  const numId = Number(id);
+  const { error } = await sb.from('meetings').delete().eq('id', numId);
   if (error) { showToast('오류: ' + error.message); return; }
-  S.meetings = S.meetings.filter(m => m.id !== id);
+  S.meetings = S.meetings.filter(m => Number(m.id) !== numId);
   renderMeetings();
   showToast('삭제됐어요');
 }
