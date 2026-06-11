@@ -341,11 +341,36 @@
 <div class="overlay" id="modal-vote">
   <div class="modal">
     <div class="modal-title">🗳️ 투표 후보 추가</div>
-    <div class="form-group"><label class="form-label">책 제목 *</label><input class="form-input" id="v-title" placeholder="예: 채식주의자" /></div>
-    <div class="form-group"><label class="form-label">저자</label><input class="form-input" id="v-author" placeholder="예: 한강" /></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('modal-vote')">취소</button>
-      <button class="btn-confirm" id="btn-vote-submit" onclick="submitVote()">추가하기</button>
+    <div class="form-group">
+      <label class="form-label">책 검색</label>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="v-search-query" placeholder="제목 또는 저자 검색" style="flex:1;"
+          onkeydown="if(event.key==='Enter') searchVoteBooks()" />
+        <button class="add-btn" onclick="searchVoteBooks()" id="v-search-btn" style="flex-shrink:0;padding:10px 14px;">
+          <i class="ti ti-search" style="font-size:15px;"></i>
+        </button>
+      </div>
+    </div>
+    <div id="v-search-results" style="display:none;margin-bottom:14px;">
+      <div class="form-label" style="margin-bottom:6px;">검색 결과</div>
+      <div id="v-search-list" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+    <div id="v-selected-book" style="display:none;">
+      <div style="display:flex;gap:12px;align-items:flex-start;background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+        <div style="width:38px;height:52px;border-radius:3px;overflow:hidden;flex-shrink:0;background:var(--beige-100);display:flex;align-items:center;justify-content:center;color:var(--brown-400);font-size:16px;" id="v-cover-prev"><i class="ti ti-book"></i></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:var(--brown-800);" id="v-sel-title">—</div>
+          <div style="font-size:12px;color:var(--brown-400);margin-top:2px;" id="v-sel-author">—</div>
+          <button onclick="clearVoteSelection()" style="margin-top:6px;font-size:11px;color:var(--brown-400);background:none;border:none;cursor:pointer;padding:0;">✕ 다시 검색</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-vote')">취소</button>
+        <button class="btn-confirm" id="btn-vote-submit" onclick="submitVote()">추가하기</button>
+      </div>
+    </div>
+    <div id="v-cancel-row">
+      <button class="btn-cancel" style="width:100%;margin-top:4px;" onclick="closeModal('modal-vote')">취소</button>
     </div>
   </div>
 </div>
@@ -691,8 +716,8 @@ async function searchVoteBooks() {
   btn.innerHTML = '<i class="ti ti-loader" style="font-size:15px;animation:spin 0.7s linear infinite;"></i>';
   try {
     const res = await fetch(
-      `https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(q)}&size=10`,
-      { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } }
+      'https://bqgppnsrfzphfsvvujdj.supabase.co/functions/v1/super-function',
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY }, body: JSON.stringify({ query: q }) }
     );
     const data = await res.json();
     renderVoteSearchResults(data.documents || []);
@@ -752,21 +777,19 @@ function clearVoteSelection() {
 
 /* ── SUBMIT VOTE ── */
 async function submitVote() {
-  const title = document.getElementById('v-title').value.trim();
-  if (!title) { showToast('책 제목을 입력해주세요'); return; }
+  if (!selectedVoteData) { showToast('책을 검색해서 선택해주세요'); return; }
   const btn = document.getElementById('btn-vote-submit');
   btn.disabled = true; btn.textContent = '저장 중...';
   const { error } = await sb.from('votes').insert({
     group_code: S.code,
-    title,
-    author: document.getElementById('v-author').value.trim(),
+    title: selectedVoteData.title,
+    author: selectedVoteData.author,
     voters: [],
   });
   btn.disabled = false; btn.textContent = '추가하기';
   if (error) { showToast('오류: ' + error.message); return; }
   closeModal('modal-vote');
-  document.getElementById('v-title').value = '';
-  document.getElementById('v-author').value = '';
+  clearVoteSelection();
   showToast('투표 후보가 추가됐어요 🗳️');
 }
 
