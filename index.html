@@ -214,14 +214,14 @@
         <div class="header-sub" id="hdr-name">나의 독서 모임</div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
+    <div style="display:flex;align-items:center;gap:6px;">
       <span class="sync-dot off" id="sync-dot" title="실시간 연결 상태"></span>
       <div class="group-badge" onclick="copyCode()" title="코드 복사">
         <i class="ti ti-users" style="font-size:13px;"></i>
         <span id="hdr-code">——</span>
       </div>
-      <div class="group-badge" onclick="logout()" title="로그아웃" style="padding:5px 10px;">
-        <i class="ti ti-logout" style="font-size:13px;"></i>
+      <div class="group-badge" onclick="changeGroup()" title="그룹 변경" style="padding:5px 10px;font-size:11px;gap:4px;">
+        <i class="ti ti-switch" style="font-size:13px;"></i>그룹변경
       </div>
     </div>
   </div>
@@ -267,6 +267,7 @@
       <div class="card share-card">
         <div class="share-label">그룹 코드 공유</div>
         <div class="code-big" id="share-code">——</div>
+        <div id="member-tags" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px;"></div>
         <div class="share-hint">이 코드를 친구에게 공유하면<br>실시간으로 독서 기록을 함께 볼 수 있어요.</div>
         <button class="copy-btn" onclick="copyCode()"><i class="ti ti-copy" style="font-size:15px;"></i> 코드 복사</button>
       </div>
@@ -817,6 +818,27 @@ function renderJourney() {
   }
 
   buildMembersGrid(memberNames, doneCount);
+
+  // 멤버 닉네임 태그 렌더
+  const tagEl = document.getElementById('member-tags');
+  if (tagEl) {
+    const colors = [
+      {bg:'#3A2E2222',color:'#3A2E22',border:'#3A2E2244'},
+      {bg:'#C4813A22',color:'#C4813A',border:'#C4813A44'},
+      {bg:'#7A8C7222',color:'#7A8C72',border:'#7A8C7244'},
+    ];
+    tagEl.innerHTML = memberNames.slice(0,3).map((name,i) => {
+      const c = colors[i] || colors[0];
+      const isMe = name === S.myName;
+      return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">
+        ${isMe ? '👤 ' : ''}${name}
+      </span>`;
+    }).join('');
+    // 아직 참여 안 한 슬롯
+    for (let i = memberNames.length; i < 3; i++) {
+      tagEl.innerHTML += `<span style="background:var(--beige-100);color:var(--beige-300);border:1px dashed var(--beige-300);border-radius:20px;padding:4px 12px;font-size:12px;">대기중...</span>`;
+    }
+  }
 }
 
 function buildMembersGrid(memberNames, doneCount) {
@@ -946,11 +968,19 @@ function renderBooks() {
   }).join('');
 }
 
-/* ── LOGOUT ── */
+/* ── LOGOUT / GROUP CHANGE ── */
 function logout() {
-  if (!confirm('로그아웃 할까요? 다시 이름과 코드를 입력해야 해요.')) return;
   localStorage.removeItem('dsg_name');
   localStorage.removeItem('dsg_code');
+  location.reload();
+}
+
+function changeGroup() {
+  const newCode = prompt('변경할 그룹 코드를 입력해주세요:');
+  if (!newCode) return;
+  const code = newCode.trim().toUpperCase();
+  if (code.length < 4) { alert('코드가 너무 짧아요'); return; }
+  localStorage.setItem('dsg_code', code);
   location.reload();
 }
 
