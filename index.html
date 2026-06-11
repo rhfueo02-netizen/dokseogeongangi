@@ -392,13 +392,25 @@
 <!-- MODAL: 그룹 변경 -->
 <div class="overlay" id="modal-group">
   <div class="modal">
-    <div class="modal-title">🔄 그룹 변경</div>
+    <div class="modal-title">🔄 그룹 관리</div>
+
     <div class="form-group">
       <label class="form-label">저장된 그룹</label>
       <div id="saved-groups-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;"></div>
     </div>
-    <div class="form-group" style="margin-top:8px;">
-      <label class="form-label">새 그룹 코드 입력</label>
+
+    <div style="border-top:1px solid var(--beige-200);margin:14px 0;"></div>
+
+    <div class="form-group">
+      <label class="form-label">새 그룹 만들기</label>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="new-group-name" placeholder="그룹 이름 (예: 2024 독서모임)" style="flex:1;" />
+        <button class="add-btn" onclick="createNewGroup()" style="flex-shrink:0;padding:10px 14px;white-space:nowrap;">만들기</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">기존 그룹 참여 (코드 입력)</label>
       <div style="display:flex;gap:8px;">
         <input class="form-input" id="new-group-code" placeholder="예: AN0E7V" maxlength="6"
           style="flex:1;letter-spacing:3px;font-weight:600;text-transform:uppercase;"
@@ -406,7 +418,8 @@
         <button class="add-btn" onclick="addAndSwitchGroup()" style="flex-shrink:0;padding:10px 14px;">참여</button>
       </div>
     </div>
-    <div style="margin-top:12px;">
+
+    <div style="margin-top:4px;">
       <button class="btn-cancel" style="width:100%;" onclick="closeModal('modal-group')">닫기</button>
     </div>
   </div>
@@ -1114,6 +1127,18 @@ async function switchToGroup(code) {
   localStorage.setItem('dsg_code', code);
   closeModal('modal-group');
   location.reload();
+}
+
+async function createNewGroup() {
+  const name = document.getElementById('new-group-name').value.trim() || S.myName + '의 모임';
+  const code = genCode();
+  const { error } = await sb.from('groups').insert({ code });
+  if (error) { showToast('오류: ' + error.message); return; }
+  saveGroup(code, name);
+  showToast('새 그룹 만들었어요! 코드: ' + code);
+  // 코드 복사
+  navigator.clipboard.writeText(code).catch(() => {});
+  setTimeout(() => switchToGroup(code), 1000);
 }
 
 async function addAndSwitchGroup() {
