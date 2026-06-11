@@ -411,7 +411,7 @@ const STATUS = {
   done:    { label:'완독',    cls:'sp-done',    pct:100 },
 };
 
-const S = { code: null, myName: '나', myRating: 0, books: [], votes: [], meetings: [], members: [], ratings: [], comments: [] };
+const S = { code: null, myName: '나', myRating: 0, books: [], votes: [], meetings: [], members: [], ratings: [], comments: [], groupMembers: [] };
 
 /* ── SETUP ── */
 function genCode() { return Math.random().toString(36).substring(2,8).toUpperCase(); }
@@ -454,24 +454,33 @@ async function enterApp() {
   document.getElementById('hdr-name').textContent = S.myName + '의 독서 모임';
   document.getElementById('hdr-code').textContent = S.code;
   document.getElementById('share-code').textContent = S.code;
+  // 멤버 등록 (이미 있으면 last_seen 업데이트)
+  const existing = await sb.from('members').select('id').eq('group_code', S.code).eq('member_name', S.myName).single();
+  if (existing.data) {
+    await sb.from('members').update({ last_seen: new Date().toISOString() }).eq('id', existing.data.id);
+  } else {
+    await sb.from('members').insert({ group_code: S.code, member_name: S.myName });
+  }
   await loadAll();
   subscribeRealtime();
 }
 
 /* ── LOAD ── */
 async function loadAll() {
-  const [bRes, vRes, mRes, rRes, cRes] = await Promise.all([
+  const [bRes, vRes, mRes, rRes, cRes, mbRes] = await Promise.all([
     sb.from('books').select('*').eq('group_code', S.code).order('created_at', { ascending: false }),
     sb.from('votes').select('*').eq('group_code', S.code).order('created_at', { ascending: true }),
     sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: false }),
     sb.from('ratings').select('*').eq('group_code', S.code),
     sb.from('comments').select('*').eq('group_code', S.code).order('created_at', { ascending: true }),
+    sb.from('members').select('*').eq('group_code', S.code).order('joined_at', { ascending: true }),
   ]);
   S.books    = bRes.data || [];
   S.votes    = vRes.data || [];
   S.meetings = mRes.data || [];
   S.ratings  = rRes.data || [];
   S.comments = cRes.data || [];
+  S.members  = mbRes.data || [];
   renderAll();
 }
 
@@ -484,6 +493,7 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings', filter: 'group_code=eq.' + S.code }, () => reloadTable('meetings'))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings',  filter: 'group_code=eq.' + S.code }, () => reloadTable('ratings'))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: 'group_code=eq.' + S.code }, () => reloadTable('comments'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'members',  filter: 'group_code=eq.' + S.code }, () => reloadTable('members'))
     .subscribe(status => {
       document.getElementById('sync-dot').classList.toggle('off', status !== 'SUBSCRIBED');
     });
@@ -505,6 +515,9 @@ async function reloadTable(table) {
   } else if (table === 'comments') {
     const { data } = await sb.from('comments').select('*').eq('group_code', S.code).order('created_at', { ascending: true });
     S.comments = data || []; renderBooks();
+  } else if (table === 'members') {
+    const { data } = await sb.from('members').select('*').eq('group_code', S.code).order('joined_at', { ascending: true });
+    S.members = data || []; renderJourney();
   }
 }
 
@@ -819,7 +832,7 @@ function renderJourney() {
 
   buildMembersGrid(memberNames, doneCount);
 
-  // 멤버 닉네임 태그 렌더
+  // 멤버 닉네임 태그 렌더 (members 테이블 기반)
   const tagEl = document.getElementById('member-tags');
   if (tagEl) {
     const colors = [
@@ -827,15 +840,18 @@ function renderJourney() {
       {bg:'#C4813A22',color:'#C4813A',border:'#C4813A44'},
       {bg:'#7A8C7222',color:'#7A8C72',border:'#7A8C7244'},
     ];
-    tagEl.innerHTML = memberNames.slice(0,3).map((name,i) => {
+    const allMembers = S.members.length ? S.members : memberNames.map(n => ({member_name: n}));
+    tagEl.innerHTML = allMembers.slice(0,3).map((m, i) => {
+      const name = m.member_name;
       const c = colors[i] || colors[0];
       const isMe = name === S.myName;
-      return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">
-        ${isMe ? '👤 ' : ''}${name}
+      const joinedDate = m.joined_at ? new Date(m.joined_at).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}) : '';
+      return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;" title="${joinedDate} 참여">
+        ${isMe ? '👤 ' : '📖 '}${name}
       </span>`;
     }).join('');
     // 아직 참여 안 한 슬롯
-    for (let i = memberNames.length; i < 3; i++) {
+    for (let i = allMembers.length; i < 3; i++) {
       tagEl.innerHTML += `<span style="background:var(--beige-100);color:var(--beige-300);border:1px dashed var(--beige-300);border-radius:20px;padding:4px 12px;font-size:12px;">대기중...</span>`;
     }
   }
@@ -1160,6 +1176,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('hdr-name').textContent = savedName + '의 독서 모임';
     document.getElementById('hdr-code').textContent = savedCode;
     document.getElementById('share-code').textContent = savedCode;
+    // 멤버 last_seen 업데이트
+    const existing = await sb.from('members').select('id').eq('group_code', savedCode).eq('member_name', savedName).single();
+    if (existing.data) {
+      await sb.from('members').update({ last_seen: new Date().toISOString() }).eq('id', existing.data.id);
+    } else {
+      await sb.from('members').insert({ group_code: savedCode, member_name: savedName });
+    }
     await loadAll();
     subscribeRealtime();
   }
