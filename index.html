@@ -249,11 +249,14 @@
               </marker>
             </defs>
             <path d="M50,80 C120,80 160,25 240,35 S380,90 460,55 S550,20 570,28" stroke="#D6C9B0" stroke-width="2.5" fill="none" stroke-dasharray="7,5" marker-end="url(#arr)"/>
+            <!-- 마일스톤 -->
+            <g id="milestones"></g>
             <circle cx="570" cy="28" r="13" fill="#F2EDE3" stroke="#8B6F52" stroke-width="1.5"/>
-            <text x="570" y="33" font-size="13" text-anchor="middle" fill="#5C4A36">🏁</text>
+            <text x="570" y="33" font-size="11" text-anchor="middle" fill="#5C4A36">🏁</text>
+            <text x="570" y="18" font-size="9" text-anchor="middle" fill="#8B6F52">100권</text>
             <g id="dot-0" transform="translate(50,80)"><circle r="14" fill="#3A2E22" stroke="#FAF7F2" stroke-width="2.5"/><text id="dot-0-txt" font-size="10" font-weight="600" text-anchor="middle" dy="4" fill="#F2EDE3">나</text></g>
-            <g id="dot-1" transform="translate(50,80)"><circle r="11" fill="#C4813A" stroke="#FAF7F2" stroke-width="2" opacity="0.9"/><text font-size="9" font-weight="600" text-anchor="middle" dy="3.5" fill="#FDF9F4">?</text></g>
-            <g id="dot-2" transform="translate(50,80)"><circle r="11" fill="#7A8C72" stroke="#FAF7F2" stroke-width="2" opacity="0.9"/><text font-size="9" font-weight="600" text-anchor="middle" dy="3.5" fill="#FDF9F4">?</text></g>
+            <g id="dot-1" transform="translate(50,80)"><circle r="11" fill="#C4813A" stroke="#FAF7F2" stroke-width="2" opacity="0.9"/><text id="dot-1-txt" font-size="9" font-weight="600" text-anchor="middle" dy="3.5" fill="#FDF9F4">?</text></g>
+            <g id="dot-2" transform="translate(50,80)"><circle r="11" fill="#7A8C72" stroke="#FAF7F2" stroke-width="2" opacity="0.9"/><text id="dot-2-txt" font-size="9" font-weight="600" text-anchor="middle" dy="3.5" fill="#FDF9F4">?</text></g>
           </svg>
         </div>
         <div class="members-grid" id="members-grid"></div>
@@ -334,33 +337,11 @@
 <div class="overlay" id="modal-vote">
   <div class="modal">
     <div class="modal-title">🗳️ 투표 후보 추가</div>
-    <div class="form-group">
-      <label class="form-label">책 검색</label>
-      <div style="display:flex;gap:8px;">
-        <input class="form-input" id="v-search-query" placeholder="제목 또는 저자 검색" style="flex:1;" onkeydown="if(event.key==='Enter') searchVoteBooks()" />
-        <button class="add-btn" onclick="searchVoteBooks()" style="flex-shrink:0;padding:10px 14px;" id="v-search-btn"><i class="ti ti-search" style="font-size:15px;"></i></button>
-      </div>
-    </div>
-    <div id="v-search-results" style="display:none;margin-bottom:14px;">
-      <div class="form-label" style="margin-bottom:6px;">검색 결과</div>
-      <div id="v-search-list" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
-    </div>
-    <div id="v-selected-book" style="display:none;">
-      <div style="display:flex;gap:12px;align-items:flex-start;background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
-        <div style="width:38px;height:52px;border-radius:3px;overflow:hidden;flex-shrink:0;background:var(--beige-100);display:flex;align-items:center;justify-content:center;color:var(--brown-400);font-size:16px;" id="v-cover-prev"><i class="ti ti-book"></i></div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;color:var(--brown-800);" id="v-sel-title">—</div>
-          <div style="font-size:12px;color:var(--brown-400);margin-top:2px;" id="v-sel-author">—</div>
-          <button onclick="clearVoteSelection()" style="margin-top:6px;font-size:11px;color:var(--brown-400);background:none;border:none;cursor:pointer;padding:0;">✕ 다시 검색</button>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeModal('modal-vote')">취소</button>
-        <button class="btn-confirm" id="btn-vote-submit" onclick="submitVote()">추가하기</button>
-      </div>
-    </div>
-    <div id="v-cancel-row">
-      <button class="btn-cancel" style="width:100%;margin-top:4px;" onclick="closeModal('modal-vote')">취소</button>
+    <div class="form-group"><label class="form-label">책 제목 *</label><input class="form-input" id="v-title" placeholder="예: 채식주의자" /></div>
+    <div class="form-group"><label class="form-label">저자</label><input class="form-input" id="v-author" placeholder="예: 한강" /></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-vote')">취소</button>
+      <button class="btn-confirm" id="btn-vote-submit" onclick="submitVote()">추가하기</button>
     </div>
   </div>
 </div>
@@ -444,7 +425,7 @@ async function loadAll() {
   const [bRes, vRes, mRes, rRes, cRes] = await Promise.all([
     sb.from('books').select('*').eq('group_code', S.code).order('created_at', { ascending: false }),
     sb.from('votes').select('*').eq('group_code', S.code).order('created_at', { ascending: true }),
-    sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: true }),
+    sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: false }),
     sb.from('ratings').select('*').eq('group_code', S.code),
     sb.from('comments').select('*').eq('group_code', S.code).order('created_at', { ascending: true }),
   ]);
@@ -478,7 +459,7 @@ async function reloadTable(table) {
     const { data } = await sb.from('votes').select('*').eq('group_code', S.code).order('created_at', { ascending: true });
     S.votes = data || []; renderVotes();
   } else if (table === 'meetings') {
-    const { data } = await sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: true });
+    const { data } = await sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: false });
     S.meetings = data || []; renderMeetings();
   } else if (table === 'ratings') {
     const { data } = await sb.from('ratings').select('*').eq('group_code', S.code);
@@ -687,19 +668,21 @@ function clearVoteSelection() {
 
 /* ── SUBMIT VOTE ── */
 async function submitVote() {
-  if (!selectedVoteData) { showToast('책을 검색해서 선택해주세요'); return; }
+  const title = document.getElementById('v-title').value.trim();
+  if (!title) { showToast('책 제목을 입력해주세요'); return; }
   const btn = document.getElementById('btn-vote-submit');
   btn.disabled = true; btn.textContent = '저장 중...';
   const { error } = await sb.from('votes').insert({
     group_code: S.code,
-    title: selectedVoteData.title,
-    author: selectedVoteData.author,
+    title,
+    author: document.getElementById('v-author').value.trim(),
     voters: [],
   });
   btn.disabled = false; btn.textContent = '추가하기';
   if (error) { showToast('오류: ' + error.message); return; }
   closeModal('modal-vote');
-  clearVoteSelection();
+  document.getElementById('v-title').value = '';
+  document.getElementById('v-author').value = '';
   showToast('투표 후보가 추가됐어요 🗳️');
 }
 
@@ -715,15 +698,17 @@ async function toggleVote(id, currentVoters) {
 async function submitMeeting() {
   const date = document.getElementById('m-date').value;
   if (!date) { showToast('날짜를 선택해주세요'); return; }
+  if (!S.code) { showToast('그룹 코드가 없어요. 다시 로그인해주세요'); return; }
   const btn = document.getElementById('btn-meeting-submit');
   btn.disabled = true; btn.textContent = '저장 중...';
-  const { error } = await sb.from('meetings').insert({
-    group_code: S.code, date,
+  const { data, error } = await sb.from('meetings').insert({
+    group_code: S.code,
+    date,
     book: document.getElementById('m-book').value.trim(),
     memo: document.getElementById('m-memo').value.trim(),
-  });
+  }).select();
   btn.disabled = false; btn.textContent = '추가하기';
-  if (error) { showToast('오류: ' + error.message); return; }
+  if (error) { showToast('오류: ' + error.message); console.error(error); return; }
   closeModal('modal-meeting');
   document.getElementById('m-date').value = '';
   document.getElementById('m-book').value = '';
@@ -734,60 +719,101 @@ async function submitMeeting() {
 /* ── RENDER ── */
 function renderAll() { renderJourney(); renderBooks(); renderVotes(); renderMeetings(); }
 
+const GOAL = 100;
+const MILESTONES = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
 function renderJourney() {
-  const latest = S.books[0];
-  if (!latest) { buildMembersGrid([]); return; }
-  document.getElementById('j-book-title').textContent  = latest.title;
-  document.getElementById('j-book-author').textContent = latest.author || '';
-  const cover = document.getElementById('j-cover');
-  cover.innerHTML = latest.cover
-    ? `<img src="${latest.cover}" onerror="this.parentNode.innerHTML='<i class=ti ti-book></i>'" />`
-    : `<i class="ti ti-book"></i>`;
-
-  // 멤버별 최신 상태 모으기 (같은 책 기준)
-  const memberMap = {};
+  // 완독 권수 집계 (멤버별)
+  const doneCount = {};
   S.books.forEach(b => {
-    if (!memberMap[b.added_by]) memberMap[b.added_by] = b;
+    if (b.status === 'done') {
+      doneCount[b.added_by] = (doneCount[b.added_by] || 0) + 1;
+    }
   });
-  const members = Object.values(memberMap);
-  buildMembersGrid(members);
 
-  // 내 상태 점 위치
-  const myBook = memberMap[S.myName] || latest;
-  const myPct = STATUS[myBook.status]?.pct || 0;
+  // 현재 읽는 책 (최신 등록 기준)
+  const latest = S.books[0];
+  if (latest) {
+    document.getElementById('j-book-title').textContent  = latest.title;
+    document.getElementById('j-book-author').textContent = latest.author || '';
+    const cover = document.getElementById('j-cover');
+    cover.innerHTML = latest.cover
+      ? `<img src="${latest.cover}" onerror="this.parentNode.innerHTML='<i class=ti ti-book></i>'" />`
+      : `<i class="ti ti-book"></i>`;
+  }
+
+  // 멤버 목록 (books에 등장한 모든 멤버)
+  const memberSet = {};
+  S.books.forEach(b => { if (!memberSet[b.added_by]) memberSet[b.added_by] = true; });
+  const memberNames = Object.keys(memberSet);
+
+  // 마일스톤 렌더
+  const msEl = document.getElementById('milestones');
+  if (msEl) {
+    msEl.innerHTML = MILESTONES.map(m => {
+      const pos = pathPoint(m / GOAL);
+      return `<g>
+        <circle cx="${pos.x}" cy="${pos.y}" r="4" fill="#E8E0D0" stroke="#D6C9B0" stroke-width="1"/>
+        <text x="${pos.x}" y="${pos.y - 7}" font-size="8" text-anchor="middle" fill="#8B6F52">${m}</text>
+      </g>`;
+    }).join('');
+  }
+
+  // 각 멤버 점 위치 업데이트
   const colors = ['#3A2E22','#C4813A','#7A8C72'];
-  members.forEach((m, i) => {
-    const pct = STATUS[m.status]?.pct || 0;
-    const offset = i * 0.05;
-    const pos = pathPoint(Math.min(pct / 100 + offset, 0.97));
+  memberNames.slice(0,3).forEach((name, i) => {
+    const count = doneCount[name] || 0;
+    const t = Math.min(count / GOAL, 0.97);
+    const offset = i * 0.01; // 겹침 방지
+    const pos = pathPoint(Math.min(t + offset, 0.97));
     const g = document.getElementById('dot-' + i);
     if (g) {
       g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
       const txt = g.querySelector('text');
-      if (txt) txt.textContent = m.added_by.slice(0,1);
+      if (txt) txt.textContent = name.slice(0,1);
     }
   });
+  // 안 쓰는 점 숨기기
+  for (let i = memberNames.length; i < 3; i++) {
+    const g = document.getElementById('dot-' + i);
+    if (g) g.setAttribute('transform', 'translate(-50,-50)');
+  }
+
+  buildMembersGrid(memberNames, doneCount);
 }
 
-function buildMembersGrid(members) {
+function buildMembersGrid(memberNames, doneCount) {
   const grid = document.getElementById('members-grid');
-  if (!members.length) {
-    grid.innerHTML = `<div class="member-card" style="grid-column:1/-1;"><div class="member-top"><div class="avatar av-0">${S.myName.slice(0,1)}</div><div><div class="member-name">${S.myName}</div><div class="member-meta">나</div></div></div><div class="prog-row"><span class="status-pill sp-buying">대기중</span><span class="prog-pct">0%</span></div><div class="prog-bar"><div class="prog-fill pf-0" style="width:0%"></div></div></div>`;
+  if (!memberNames.length) {
+    grid.innerHTML = `<div class="member-card" style="grid-column:1/-1;">
+      <div class="member-top"><div class="avatar av-0">${S.myName.slice(0,1)}</div>
+      <div><div class="member-name">${S.myName}</div><div class="member-meta">나</div></div></div>
+      <div class="prog-row"><span style="font-size:13px;font-weight:600;color:var(--brown-800);">0권</span><span class="prog-pct">/ ${GOAL}권</span></div>
+      <div class="prog-bar"><div class="prog-fill pf-0" style="width:0%"></div></div>
+    </div>`;
     return;
   }
-  grid.innerHTML = members.slice(0,3).map((m, i) => {
-    const sm = STATUS[m.status] || STATUS.buying;
-    const isMe = m.added_by === S.myName;
-    return `<div class="member-card">
+  // 완독 순위 정렬
+  const sorted = [...memberNames].sort((a,b) => (doneCount[b]||0) - (doneCount[a]||0));
+  const rankEmoji = ['🥇','🥈','🥉'];
+  grid.innerHTML = sorted.slice(0,3).map((name, rank) => {
+    const origIdx = memberNames.indexOf(name);
+    const count = doneCount[name] || 0;
+    const pct = Math.min(Math.round(count / GOAL * 100), 100);
+    const isMe = name === S.myName;
+    return `<div class="member-card" style="${isMe ? 'border-color:var(--brown-400);' : ''}">
       <div class="member-top">
-        <div class="avatar av-${i}">${m.added_by.slice(0,1)}</div>
-        <div><div class="member-name">${m.added_by}</div><div class="member-meta">${isMe ? '나' : '함께 읽는 중'}</div></div>
+        <div class="avatar av-${origIdx < 3 ? origIdx : 0}">${name.slice(0,1)}</div>
+        <div>
+          <div class="member-name">${rankEmoji[rank] || ''} ${name}${isMe ? ' (나)' : ''}</div>
+          <div class="member-meta">완독 ${count}권</div>
+        </div>
       </div>
       <div class="prog-row">
-        <span class="status-pill ${sm.cls}">${sm.label}</span>
-        <span class="prog-pct">${sm.pct}%</span>
+        <span style="font-size:13px;font-weight:600;color:var(--brown-800);">${count}권</span>
+        <span class="prog-pct">/ ${GOAL}권 (${pct}%)</span>
       </div>
-      <div class="prog-bar"><div class="prog-fill pf-${i}" style="width:${sm.pct}%"></div></div>
+      <div class="prog-bar"><div class="prog-fill pf-${origIdx < 3 ? origIdx : 0}" style="width:${pct}%"></div></div>
     </div>`;
   }).join('');
 }
@@ -854,6 +880,15 @@ function renderBooks() {
       </div>
     </div>`;
 
+    const isOwner = b.added_by === S.myName;
+    const editBtns = isOwner ? `<div style="display:flex;gap:6px;margin-top:8px;">
+      <select onchange="updateBookStatus(${b.id}, this.value)" style="font-size:11px;padding:4px 8px;border:1px solid var(--beige-300);border-radius:6px;background:var(--beige-50);color:var(--brown-600);cursor:pointer;">
+        <option value="buying" ${b.status==='buying'?'selected':''}>구입중</option>
+        <option value="reading" ${b.status==='reading'?'selected':''}>독서중</option>
+        <option value="done" ${b.status==='done'?'selected':''}>완독</option>
+      </select>
+      <button onclick="deleteBook(${b.id})" style="font-size:11px;padding:4px 10px;border:1px solid #F09595;border-radius:6px;background:#FCEBEB;color:#A32D2D;cursor:pointer;">삭제</button>
+    </div>` : '';
     return `<div class="card">
       <div class="book-card">
         <div class="book-cover">${cover}</div>
@@ -862,6 +897,7 @@ function renderBooks() {
             <div><div class="book-title">${b.title}</div><div class="book-author">${b.author||''}</div>${buyBtn}</div>
             <span class="status-pill ${sm.cls}" style="flex-shrink:0;">${sm.label}</span>
           </div>
+          ${editBtns}
         </div>
       </div>
       ${topicsHtml}
@@ -870,6 +906,18 @@ function renderBooks() {
       ${commentsHtml}
     </div>`;
   }).join('');
+}
+
+/* ── UPDATE / DELETE BOOK ── */
+async function updateBookStatus(id, status) {
+  await sb.from('books').update({ status }).eq('id', id);
+  showToast('상태가 업데이트됐어요!');
+}
+
+async function deleteBook(id) {
+  if (!confirm('정말 삭제할까요?')) return;
+  await sb.from('books').delete().eq('id', id);
+  showToast('삭제됐어요');
 }
 
 /* ── RATING ── */
