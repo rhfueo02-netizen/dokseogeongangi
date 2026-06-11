@@ -334,11 +334,33 @@
 <div class="overlay" id="modal-vote">
   <div class="modal">
     <div class="modal-title">🗳️ 투표 후보 추가</div>
-    <div class="form-group"><label class="form-label">책 제목 *</label><input class="form-input" id="v-title" placeholder="예: 채식주의자" /></div>
-    <div class="form-group"><label class="form-label">저자</label><input class="form-input" id="v-author" placeholder="예: 한강" /></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('modal-vote')">취소</button>
-      <button class="btn-confirm" id="btn-vote-submit" onclick="submitVote()">추가하기</button>
+    <div class="form-group">
+      <label class="form-label">책 검색</label>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="v-search-query" placeholder="제목 또는 저자 검색" style="flex:1;" onkeydown="if(event.key==='Enter') searchVoteBooks()" />
+        <button class="add-btn" onclick="searchVoteBooks()" style="flex-shrink:0;padding:10px 14px;" id="v-search-btn"><i class="ti ti-search" style="font-size:15px;"></i></button>
+      </div>
+    </div>
+    <div id="v-search-results" style="display:none;margin-bottom:14px;">
+      <div class="form-label" style="margin-bottom:6px;">검색 결과</div>
+      <div id="v-search-list" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+    <div id="v-selected-book" style="display:none;">
+      <div style="display:flex;gap:12px;align-items:flex-start;background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+        <div style="width:38px;height:52px;border-radius:3px;overflow:hidden;flex-shrink:0;background:var(--beige-100);display:flex;align-items:center;justify-content:center;color:var(--brown-400);font-size:16px;" id="v-cover-prev"><i class="ti ti-book"></i></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:var(--brown-800);" id="v-sel-title">—</div>
+          <div style="font-size:12px;color:var(--brown-400);margin-top:2px;" id="v-sel-author">—</div>
+          <button onclick="clearVoteSelection()" style="margin-top:6px;font-size:11px;color:var(--brown-400);background:none;border:none;cursor:pointer;padding:0;">✕ 다시 검색</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-vote')">취소</button>
+        <button class="btn-confirm" id="btn-vote-submit" onclick="submitVote()">추가하기</button>
+      </div>
+    </div>
+    <div id="v-cancel-row">
+      <button class="btn-cancel" style="width:100%;margin-top:4px;" onclick="closeModal('modal-vote')">취소</button>
     </div>
   </div>
 </div>
@@ -370,7 +392,7 @@ const STATUS = {
   done:    { label:'완독',    cls:'sp-done',    pct:100 },
 };
 
-const S = { code: null, myName: '나', myRating: 0, books: [], votes: [], meetings: [], members: [] };
+const S = { code: null, myName: '나', myRating: 0, books: [], votes: [], meetings: [], members: [], ratings: [], comments: [] };
 
 /* ── SETUP ── */
 function genCode() { return Math.random().toString(36).substring(2,8).toUpperCase(); }
@@ -419,14 +441,18 @@ async function enterApp() {
 
 /* ── LOAD ── */
 async function loadAll() {
-  const [bRes, vRes, mRes] = await Promise.all([
+  const [bRes, vRes, mRes, rRes, cRes] = await Promise.all([
     sb.from('books').select('*').eq('group_code', S.code).order('created_at', { ascending: false }),
     sb.from('votes').select('*').eq('group_code', S.code).order('created_at', { ascending: true }),
     sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: true }),
+    sb.from('ratings').select('*').eq('group_code', S.code),
+    sb.from('comments').select('*').eq('group_code', S.code).order('created_at', { ascending: true }),
   ]);
   S.books    = bRes.data || [];
   S.votes    = vRes.data || [];
   S.meetings = mRes.data || [];
+  S.ratings  = rRes.data || [];
+  S.comments = cRes.data || [];
   renderAll();
 }
 
@@ -437,6 +463,8 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'books',    filter: 'group_code=eq.' + S.code }, () => reloadTable('books'))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'votes',    filter: 'group_code=eq.' + S.code }, () => reloadTable('votes'))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings', filter: 'group_code=eq.' + S.code }, () => reloadTable('meetings'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ratings',  filter: 'group_code=eq.' + S.code }, () => reloadTable('ratings'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: 'group_code=eq.' + S.code }, () => reloadTable('comments'))
     .subscribe(status => {
       document.getElementById('sync-dot').classList.toggle('off', status !== 'SUBSCRIBED');
     });
@@ -452,6 +480,12 @@ async function reloadTable(table) {
   } else if (table === 'meetings') {
     const { data } = await sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: true });
     S.meetings = data || []; renderMeetings();
+  } else if (table === 'ratings') {
+    const { data } = await sb.from('ratings').select('*').eq('group_code', S.code);
+    S.ratings = data || []; renderBooks();
+  } else if (table === 'comments') {
+    const { data } = await sb.from('comments').select('*').eq('group_code', S.code).order('created_at', { ascending: true });
+    S.comments = data || []; renderBooks();
   }
 }
 
@@ -473,6 +507,7 @@ function openModal(id) {
     document.getElementById('f-topics').value = '';
     document.getElementById('f-status').value = 'buying';
   }
+  if (id === 'modal-vote') { clearVoteSelection && clearVoteSelection(); }
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.overlay').forEach(ov => {
@@ -589,22 +624,82 @@ async function submitBook() {
   showToast('책이 등록됐어요 📚');
 }
 
+/* ── VOTE BOOK SEARCH ── */
+let selectedVoteData = null;
+
+async function searchVoteBooks() {
+  const q = document.getElementById('v-search-query').value.trim();
+  if (!q) { showToast('검색어를 입력해주세요'); return; }
+  const btn = document.getElementById('v-search-btn');
+  btn.innerHTML = '<i class="ti ti-loader" style="font-size:15px;animation:spin 0.7s linear infinite;"></i>';
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(q)}&size=10`,
+      { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } }
+    );
+    const data = await res.json();
+    renderVoteSearchResults(data.documents || []);
+  } catch(e) { showToast('검색 중 오류가 발생했어요'); }
+  btn.innerHTML = '<i class="ti ti-search" style="font-size:15px;"></i>';
+}
+
+function renderVoteSearchResults(books) {
+  const el = document.getElementById('v-search-results');
+  const list = document.getElementById('v-search-list');
+  if (!books.length) { list.innerHTML = '<div style="font-size:13px;color:var(--brown-400);padding:8px;">검색 결과가 없어요</div>'; el.style.display = 'block'; return; }
+  list.innerHTML = books.map((b, i) => {
+    const authors = (b.authors||[]).join(', ');
+    const thumb = b.thumbnail || '';
+    return `<div onclick="selectVoteBook(${i})" style="display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--beige-200);border-radius:var(--radius-md);cursor:pointer;background:var(--cream);">
+      <div style="width:38px;height:52px;border-radius:3px;overflow:hidden;flex-shrink:0;background:var(--beige-100);display:flex;align-items:center;justify-content:center;color:var(--brown-400);font-size:16px;">
+        ${thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;" />` : '<i class="ti ti-book"></i>'}
+      </div>
+      <div style="min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--brown-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.title}</div>
+        <div style="font-size:11px;color:var(--brown-400);margin-top:2px;">${authors}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.style.display = 'block';
+  el._books = books;
+}
+
+function selectVoteBook(idx) {
+  const books = document.getElementById('v-search-list').parentElement._books;
+  const b = books[idx];
+  selectedVoteData = { title: b.title, author: (b.authors||[]).join(', '), cover: b.thumbnail||'' };
+  document.getElementById('v-sel-title').textContent = b.title;
+  document.getElementById('v-sel-author').textContent = (b.authors||[]).join(', ');
+  const prev = document.getElementById('v-cover-prev');
+  prev.innerHTML = b.thumbnail ? `<img src="${b.thumbnail}" style="width:100%;height:100%;object-fit:cover;" />` : '<i class="ti ti-book"></i>';
+  document.getElementById('v-search-results').style.display = 'none';
+  document.getElementById('v-selected-book').style.display  = 'block';
+  document.getElementById('v-cancel-row').style.display = 'none';
+}
+
+function clearVoteSelection() {
+  selectedVoteData = null;
+  document.getElementById('v-selected-book').style.display = 'none';
+  document.getElementById('v-cancel-row').style.display = 'block';
+  document.getElementById('v-search-results').style.display = 'none';
+  document.getElementById('v-search-query').value = '';
+}
+
 /* ── SUBMIT VOTE ── */
 async function submitVote() {
-  const title = document.getElementById('v-title').value.trim();
-  if (!title) { showToast('책 제목을 입력해주세요'); return; }
+  if (!selectedVoteData) { showToast('책을 검색해서 선택해주세요'); return; }
   const btn = document.getElementById('btn-vote-submit');
   btn.disabled = true; btn.textContent = '저장 중...';
   const { error } = await sb.from('votes').insert({
-    group_code: S.code, title,
-    author: document.getElementById('v-author').value.trim(),
+    group_code: S.code,
+    title: selectedVoteData.title,
+    author: selectedVoteData.author,
     voters: [],
   });
   btn.disabled = false; btn.textContent = '추가하기';
   if (error) { showToast('오류: ' + error.message); return; }
   closeModal('modal-vote');
-  document.getElementById('v-title').value = '';
-  document.getElementById('v-author').value = '';
+  clearVoteSelection();
   showToast('투표 후보가 추가됐어요 🗳️');
 }
 
@@ -697,28 +792,116 @@ function buildMembersGrid(members) {
   }).join('');
 }
 
+function starsHtml(n) {
+  return '★'.repeat(n||0) + `<span class="stars-off">${'★'.repeat(5-(n||0))}</span>`;
+}
+
 function renderBooks() {
   const el = document.getElementById('books-list');
   if (!S.books.length) { el.innerHTML = `<div class="empty"><i class="ti ti-book-off"></i>아직 등록된 책이 없어요<br>첫 책을 추가해보세요!</div>`; return; }
   el.innerHTML = S.books.map(b => {
     const sm = STATUS[b.status] || STATUS.buying;
-    const stars = '★'.repeat(b.rating||0) + `<span class="stars-off">${'★'.repeat(5-(b.rating||0))}</span>`;
     const cover = b.cover ? `<img src="${b.cover}" onerror="this.parentNode.innerHTML='<i class=ti ti-book></i>'" />` : `<i class="ti ti-book"></i>`;
     const buyBtn = b.link ? `<a href="${b.link}" class="buy-link" target="_blank" rel="noopener"><i class="ti ti-shopping-cart" style="font-size:12px;"></i> 구매하기</a>` : '';
-    const reviewHtml = b.review ? `<div class="review-block"><div class="review-lbl">후기 · ${b.added_by}</div><div class="review-text">${b.review}</div></div>` : '';
     const topicsHtml = b.topics?.length ? `<div class="review-block"><div class="review-lbl">논의 주제</div><div>${b.topics.map(t=>`<span class="topic-chip">${t}</span>`).join('')}</div></div>` : '';
-    return `<div class="card"><div class="book-card">
-      <div class="book-cover">${cover}</div>
-      <div class="book-info">
-        <div class="book-title-row">
-          <div><div class="book-title">${b.title}</div><div class="book-author">${b.author||''}</div>${buyBtn}</div>
-          <span class="status-pill ${sm.cls}" style="flex-shrink:0;">${sm.label}</span>
+
+    // 멤버별 별점 + 한줄평 (ratings 테이블)
+    const bookRatings = S.ratings.filter(r => r.book_id === b.id);
+    // 등록자 원본 후기도 포함
+    const allReviews = [];
+    if (b.review || b.rating) allReviews.push({ name: b.added_by, rating: b.rating||0, comment: b.review||'' });
+    bookRatings.forEach(r => { if (r.member_name !== b.added_by) allReviews.push({ name: r.member_name, rating: r.rating||0, comment: r.comment||'' }); });
+    const ratingsHtml = allReviews.length ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">` +
+      allReviews.map(r => `<div style="background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:9px 11px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:${r.comment?'6px':'0'};">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--brown-800);color:var(--beige-100);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;">${r.name.slice(0,1)}</div>
+          <span style="font-size:12px;font-weight:600;color:var(--brown-800);">${r.name}</span>
+          <span class="stars-on" style="font-size:13px;">${starsHtml(r.rating)}</span>
         </div>
-        ${b.rating ? `<div class="ratings-row"><div class="rating-item"><div class="rater-dot av-0">${(b.added_by||'?').slice(0,1)}</div><span class="stars-on" style="font-size:14px;">${stars}</span></div></div>` : ''}
-        ${reviewHtml}${topicsHtml}
+        ${r.comment ? `<div style="font-size:13px;color:var(--brown-600);line-height:1.5;">${r.comment}</div>` : ''}
+      </div>`).join('') + `</div>` : '';
+
+    // 내가 아직 평가 안 했으면 별점+한줄평 입력창
+    const alreadyRated = allReviews.some(r => r.name === S.myName);
+    const rateFormHtml = !alreadyRated ? `
+      <div style="margin-top:12px;padding:12px;border:1px dashed var(--beige-300);border-radius:var(--radius-md);background:var(--beige-50);">
+        <div style="font-size:12px;color:var(--brown-400);margin-bottom:8px;">내 별점 & 한줄평 남기기</div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;" id="rate-stars-${b.id}">
+          ${[1,2,3,4,5].map(n=>`<button onclick="setRateStar(${b.id},${n})" style="font-size:22px;background:none;border:none;cursor:pointer;color:var(--beige-300);padding:0;" class="rate-star-${b.id}"  data-n="${n}">★</button>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="rate-comment-${b.id}" placeholder="한줄평 (선택)" style="flex:1;font-size:13px;padding:8px 10px;" />
+          <button onclick="submitRating(${b.id})" style="background:var(--brown-800);color:var(--beige-100);border:none;border-radius:var(--radius-md);padding:8px 14px;font-size:12px;cursor:pointer;white-space:nowrap;">등록</button>
+        </div>
+      </div>` : '';
+
+    // 댓글
+    const bookComments = S.comments.filter(c => c.book_id === b.id);
+    const commentsHtml = `<div style="margin-top:12px;">
+      <div style="font-size:12px;color:var(--brown-400);margin-bottom:6px;">댓글 ${bookComments.length ? '('+bookComments.length+')' : ''}</div>
+      ${bookComments.map(c=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--beige-200);color:var(--brown-600);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;">${c.member_name.slice(0,1)}</div>
+        <div style="flex:1;background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:8px 10px;">
+          <span style="font-size:11px;font-weight:600;color:var(--brown-800);">${c.member_name}</span>
+          <span style="font-size:11px;color:var(--brown-400);margin-left:6px;">${new Date(c.created_at).toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
+          <div style="font-size:13px;color:var(--brown-600);margin-top:3px;line-height:1.45;">${c.content}</div>
+        </div>
+      </div>`).join('')}
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <input class="form-input" id="cmt-${b.id}" placeholder="댓글 달기..." style="flex:1;font-size:13px;padding:8px 10px;"
+          onkeydown="if(event.key==='Enter') submitComment(${b.id})" />
+        <button onclick="submitComment(${b.id})" style="background:var(--beige-200);color:var(--brown-600);border:none;border-radius:var(--radius-md);padding:8px 12px;font-size:12px;cursor:pointer;">전송</button>
       </div>
-    </div></div>`;
+    </div>`;
+
+    return `<div class="card">
+      <div class="book-card">
+        <div class="book-cover">${cover}</div>
+        <div class="book-info">
+          <div class="book-title-row">
+            <div><div class="book-title">${b.title}</div><div class="book-author">${b.author||''}</div>${buyBtn}</div>
+            <span class="status-pill ${sm.cls}" style="flex-shrink:0;">${sm.label}</span>
+          </div>
+        </div>
+      </div>
+      ${topicsHtml}
+      ${ratingsHtml}
+      ${rateFormHtml}
+      ${commentsHtml}
+    </div>`;
   }).join('');
+}
+
+/* ── RATING ── */
+const rateStarState = {};
+function setRateStar(bookId, n) {
+  rateStarState[bookId] = n;
+  document.querySelectorAll(`.rate-star-${bookId}`).forEach(btn => {
+    btn.style.color = parseInt(btn.dataset.n) <= n ? 'var(--amber-warm)' : 'var(--beige-300)';
+  });
+}
+
+async function submitRating(bookId) {
+  const rating = rateStarState[bookId] || 0;
+  const comment = document.getElementById(`rate-comment-${bookId}`)?.value.trim() || '';
+  const { error } = await sb.from('ratings').upsert({
+    book_id: bookId, group_code: S.code, member_name: S.myName, rating, comment
+  }, { onConflict: 'book_id,member_name' });
+  if (error) { showToast('오류: ' + error.message); return; }
+  showToast('평가가 등록됐어요 ⭐');
+}
+
+/* ── COMMENT ── */
+async function submitComment(bookId) {
+  const input = document.getElementById(`cmt-${bookId}`);
+  const content = input?.value.trim();
+  if (!content) return;
+  const { error } = await sb.from('comments').insert({
+    book_id: bookId, group_code: S.code, member_name: S.myName, content
+  });
+  if (error) { showToast('오류: ' + error.message); return; }
+  if (input) input.value = '';
+  showToast('댓글이 등록됐어요 💬');
 }
 
 function renderVotes() {
