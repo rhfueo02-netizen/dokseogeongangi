@@ -711,10 +711,18 @@ function selectVoteBook(idx) {
 
 function clearVoteSelection() {
   selectedVoteData = null;
-  document.getElementById('v-selected-book').style.display = 'none';
-  document.getElementById('v-cancel-row').style.display = 'block';
-  document.getElementById('v-search-results').style.display = 'none';
-  document.getElementById('v-search-query').value = '';
+  const vSelected = document.getElementById('v-selected-book');
+  const vCancel = document.getElementById('v-cancel-row');
+  const vResults = document.getElementById('v-search-results');
+  const vQuery = document.getElementById('v-search-query');
+  const vTitle = document.getElementById('v-title');
+  const vAuthor = document.getElementById('v-author');
+  if (vSelected) vSelected.style.display = 'none';
+  if (vCancel) vCancel.style.display = 'block';
+  if (vResults) vResults.style.display = 'none';
+  if (vQuery) vQuery.value = '';
+  if (vTitle) vTitle.value = '';
+  if (vAuthor) vAuthor.value = '';
 }
 
 /* ── SUBMIT VOTE ── */
