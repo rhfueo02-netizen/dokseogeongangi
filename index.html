@@ -220,6 +220,9 @@
         <i class="ti ti-users" style="font-size:13px;"></i>
         <span id="hdr-code">——</span>
       </div>
+      <div class="group-badge" onclick="logout()" title="로그아웃" style="padding:5px 10px;">
+        <i class="ti ti-logout" style="font-size:13px;"></i>
+      </div>
     </div>
   </div>
 
@@ -356,6 +359,40 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('modal-meeting')">취소</button>
       <button class="btn-confirm" id="btn-meeting-submit" onclick="submitMeeting()">추가하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 책 수정 -->
+<div class="overlay" id="modal-edit">
+  <div class="modal">
+    <div class="modal-title">✏️ 기록 수정</div>
+    <input type="hidden" id="edit-book-id" />
+    <div class="form-group"><label class="form-label">독서 상태</label>
+      <select class="form-select" id="edit-status">
+        <option value="buying">구입중</option>
+        <option value="reading">독서중</option>
+        <option value="done">완독</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">후기</label>
+      <textarea class="form-textarea" id="edit-review" placeholder="짧은 소감"></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">논의 주제 (쉼표로 구분)</label>
+      <input class="form-input" id="edit-topics" placeholder="예: 꿈의 의미, 무의식" />
+    </div>
+    <div class="form-group"><label class="form-label">내 별점</label>
+      <div class="star-row" id="edit-star-row">
+        <button class="star-btn" onclick="setEditStar(1)">★</button>
+        <button class="star-btn" onclick="setEditStar(2)">★</button>
+        <button class="star-btn" onclick="setEditStar(3)">★</button>
+        <button class="star-btn" onclick="setEditStar(4)">★</button>
+        <button class="star-btn" onclick="setEditStar(5)">★</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-edit')">취소</button>
+      <button class="btn-confirm" onclick="submitEdit()">저장하기</button>
     </div>
   </div>
 </div>
@@ -828,32 +865,32 @@ function renderBooks() {
   el.innerHTML = S.books.map(b => {
     const sm = STATUS[b.status] || STATUS.buying;
     const cover = b.cover ? `<img src="${b.cover}" onerror="this.parentNode.innerHTML='<i class=ti ti-book></i>'" />` : `<i class="ti ti-book"></i>`;
-    const buyBtn = b.link ? `<a href="${b.link}" class="buy-link" target="_blank" rel="noopener"><i class="ti ti-shopping-cart" style="font-size:12px;"></i> 구매하기</a>` : '';
-    const topicsHtml = b.topics?.length ? `<div class="review-block"><div class="review-lbl">논의 주제</div><div>${b.topics.map(t=>`<span class="topic-chip">${t}</span>`).join('')}</div></div>` : '';
+    const infoBtn = b.link ? `<a href="${b.link}" class="buy-link" target="_blank" rel="noopener"><i class="ti ti-info-circle" style="font-size:12px;"></i> 책 정보 더보기</a>` : '';
+    const topicsHtml = b.topics?.length ? `<div class="review-block" style="margin-top:10px;"><div class="review-lbl">논의 주제</div><div style="margin-top:4px;">${b.topics.map(t=>`<span class="topic-chip">${t}</span>`).join('')}</div></div>` : '';
 
-    // 멤버별 별점 + 한줄평 (ratings 테이블)
+    // 멤버별 별점 + 한줄평
     const bookRatings = S.ratings.filter(r => r.book_id === b.id);
-    // 등록자 원본 후기도 포함
     const allReviews = [];
     if (b.review || b.rating) allReviews.push({ name: b.added_by, rating: b.rating||0, comment: b.review||'' });
     bookRatings.forEach(r => { if (r.member_name !== b.added_by) allReviews.push({ name: r.member_name, rating: r.rating||0, comment: r.comment||'' }); });
+
     const ratingsHtml = allReviews.length ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">` +
       allReviews.map(r => `<div style="background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:9px 11px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:${r.comment?'6px':'0'};">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:${r.comment?'5px':'0'};">
           <div style="width:22px;height:22px;border-radius:50%;background:var(--brown-800);color:var(--beige-100);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;">${r.name.slice(0,1)}</div>
           <span style="font-size:12px;font-weight:600;color:var(--brown-800);">${r.name}</span>
           <span class="stars-on" style="font-size:13px;">${starsHtml(r.rating)}</span>
         </div>
-        ${r.comment ? `<div style="font-size:13px;color:var(--brown-600);line-height:1.5;">${r.comment}</div>` : ''}
+        ${r.comment ? `<div style="font-size:13px;color:var(--brown-600);line-height:1.5;margin-left:30px;">${r.comment}</div>` : ''}
       </div>`).join('') + `</div>` : '';
 
-    // 내가 아직 평가 안 했으면 별점+한줄평 입력창
-    const alreadyRated = allReviews.some(r => r.name === S.myName);
+    // 내가 아직 평가 안 했으면 별점 입력창 (등록자 제외 — 등록자는 수정으로)
+    const alreadyRated = b.added_by === S.myName || allReviews.some(r => r.name === S.myName);
     const rateFormHtml = !alreadyRated ? `
       <div style="margin-top:12px;padding:12px;border:1px dashed var(--beige-300);border-radius:var(--radius-md);background:var(--beige-50);">
-        <div style="font-size:12px;color:var(--brown-400);margin-bottom:8px;">내 별점 & 한줄평 남기기</div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;" id="rate-stars-${b.id}">
-          ${[1,2,3,4,5].map(n=>`<button onclick="setRateStar(${b.id},${n})" style="font-size:22px;background:none;border:none;cursor:pointer;color:var(--beige-300);padding:0;" class="rate-star-${b.id}"  data-n="${n}">★</button>`).join('')}
+        <div style="font-size:12px;color:var(--brown-400);margin-bottom:8px;">별점 & 한줄평 남기기</div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;">
+          ${[1,2,3,4,5].map(n=>`<button onclick="setRateStar(${b.id},${n})" style="font-size:24px;background:none;border:none;cursor:pointer;color:var(--beige-300);padding:0;" class="rate-star-${b.id}" data-n="${n}">★</button>`).join('')}
         </div>
         <div style="display:flex;gap:8px;">
           <input class="form-input" id="rate-comment-${b.id}" placeholder="한줄평 (선택)" style="flex:1;font-size:13px;padding:8px 10px;" />
@@ -863,41 +900,42 @@ function renderBooks() {
 
     // 댓글
     const bookComments = S.comments.filter(c => c.book_id === b.id);
-    const commentsHtml = `<div style="margin-top:12px;">
-      <div style="font-size:12px;color:var(--brown-400);margin-bottom:6px;">댓글 ${bookComments.length ? '('+bookComments.length+')' : ''}</div>
-      ${bookComments.map(c=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+    const commentsHtml = `<div style="margin-top:14px;border-top:1px solid var(--beige-200);padding-top:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--brown-400);margin-bottom:8px;">댓글${bookComments.length ? ' ('+bookComments.length+')' : ''}</div>
+      ${bookComments.length ? bookComments.map(c=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
         <div style="width:24px;height:24px;border-radius:50%;background:var(--beige-200);color:var(--brown-600);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;">${c.member_name.slice(0,1)}</div>
         <div style="flex:1;background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:8px 10px;">
           <span style="font-size:11px;font-weight:600;color:var(--brown-800);">${c.member_name}</span>
           <span style="font-size:11px;color:var(--brown-400);margin-left:6px;">${new Date(c.created_at).toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
           <div style="font-size:13px;color:var(--brown-600);margin-top:3px;line-height:1.45;">${c.content}</div>
         </div>
-      </div>`).join('')}
+      </div>`).join('') : '<div style="font-size:12px;color:var(--beige-300);margin-bottom:8px;">아직 댓글이 없어요</div>'}
       <div style="display:flex;gap:8px;margin-top:4px;">
         <input class="form-input" id="cmt-${b.id}" placeholder="댓글 달기..." style="flex:1;font-size:13px;padding:8px 10px;"
           onkeydown="if(event.key==='Enter') submitComment(${b.id})" />
-        <button onclick="submitComment(${b.id})" style="background:var(--beige-200);color:var(--brown-600);border:none;border-radius:var(--radius-md);padding:8px 12px;font-size:12px;cursor:pointer;">전송</button>
+        <button onclick="submitComment(${b.id})" style="background:var(--beige-200);color:var(--brown-600);border:none;border-radius:var(--radius-md);padding:8px 12px;font-size:12px;cursor:pointer;white-space:nowrap;">전송</button>
       </div>
     </div>`;
 
     const isOwner = b.added_by === S.myName;
-    const editBtns = isOwner ? `<div style="display:flex;gap:6px;margin-top:8px;">
-      <select onchange="updateBookStatus(${b.id}, this.value)" style="font-size:11px;padding:4px 8px;border:1px solid var(--beige-300);border-radius:6px;background:var(--beige-50);color:var(--brown-600);cursor:pointer;">
-        <option value="buying" ${b.status==='buying'?'selected':''}>구입중</option>
-        <option value="reading" ${b.status==='reading'?'selected':''}>독서중</option>
-        <option value="done" ${b.status==='done'?'selected':''}>완독</option>
-      </select>
+    const ownerBtns = isOwner ? `<div style="display:flex;gap:6px;margin-top:8px;">
+      <button onclick="openEditModal(${b.id})" style="font-size:11px;padding:4px 10px;border:1px solid var(--beige-300);border-radius:6px;background:var(--beige-100);color:var(--brown-600);cursor:pointer;">✏️ 수정</button>
       <button onclick="deleteBook(${b.id})" style="font-size:11px;padding:4px 10px;border:1px solid #F09595;border-radius:6px;background:#FCEBEB;color:#A32D2D;cursor:pointer;">삭제</button>
     </div>` : '';
+
     return `<div class="card">
       <div class="book-card">
         <div class="book-cover">${cover}</div>
         <div class="book-info">
           <div class="book-title-row">
-            <div><div class="book-title">${b.title}</div><div class="book-author">${b.author||''}</div>${buyBtn}</div>
+            <div>
+              <div class="book-title">${b.title}</div>
+              <div class="book-author">${b.author||''}</div>
+              ${infoBtn}
+            </div>
             <span class="status-pill ${sm.cls}" style="flex-shrink:0;">${sm.label}</span>
           </div>
-          ${editBtns}
+          ${ownerBtns}
         </div>
       </div>
       ${topicsHtml}
@@ -906,6 +944,48 @@ function renderBooks() {
       ${commentsHtml}
     </div>`;
   }).join('');
+}
+
+/* ── LOGOUT ── */
+function logout() {
+  if (!confirm('로그아웃 할까요? 다시 이름과 코드를 입력해야 해요.')) return;
+  localStorage.removeItem('dsg_name');
+  localStorage.removeItem('dsg_code');
+  location.reload();
+}
+
+/* ── EDIT MODAL ── */
+let editRating = 0;
+
+function openEditModal(bookId) {
+  const b = S.books.find(x => x.id === bookId);
+  if (!b) return;
+  document.getElementById('edit-book-id').value = bookId;
+  document.getElementById('edit-status').value = b.status || 'buying';
+  document.getElementById('edit-review').value = b.review || '';
+  document.getElementById('edit-topics').value = (b.topics||[]).join(', ');
+  editRating = b.rating || 0;
+  updateEditStars();
+  openModal('modal-edit');
+}
+
+function setEditStar(n) { editRating = n; updateEditStars(); }
+function updateEditStars() {
+  document.querySelectorAll('#edit-star-row .star-btn').forEach((b, i) => b.classList.toggle('on', i < editRating));
+}
+
+async function submitEdit() {
+  const bookId = parseInt(document.getElementById('edit-book-id').value);
+  const topics = document.getElementById('edit-topics').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const { error } = await sb.from('books').update({
+    status:  document.getElementById('edit-status').value,
+    review:  document.getElementById('edit-review').value.trim(),
+    topics,
+    rating:  editRating,
+  }).eq('id', bookId);
+  if (error) { showToast('오류: ' + error.message); return; }
+  closeModal('modal-edit');
+  showToast('수정됐어요 ✅');
 }
 
 /* ── UPDATE / DELETE BOOK ── */
@@ -932,15 +1012,17 @@ function setRateStar(bookId, n) {
 async function submitRating(bookId) {
   const rating = rateStarState[bookId] || 0;
   const comment = document.getElementById(`rate-comment-${bookId}`)?.value.trim() || '';
-  // 기존 rating 있으면 update, 없으면 insert
   const existing = S.ratings.find(r => r.book_id === bookId && r.member_name === S.myName);
-  let error;
+  let data, error;
   if (existing) {
-    ({ error } = await sb.from('ratings').update({ rating, comment }).eq('id', existing.id));
+    ({ data, error } = await sb.from('ratings').update({ rating, comment }).eq('id', existing.id).select().single());
+    if (!error && data) { const idx = S.ratings.findIndex(r=>r.id===existing.id); if(idx>=0) S.ratings[idx]=data; }
   } else {
-    ({ error } = await sb.from('ratings').insert({ book_id: bookId, group_code: S.code, member_name: S.myName, rating, comment }));
+    ({ data, error } = await sb.from('ratings').insert({ book_id: bookId, group_code: S.code, member_name: S.myName, rating, comment }).select().single());
+    if (!error && data) S.ratings.push(data);
   }
   if (error) { showToast('오류: ' + error.message); console.error(error); return; }
+  renderBooks();
   showToast('평가가 등록됐어요 ⭐');
 }
 
@@ -950,11 +1032,14 @@ async function submitComment(bookId) {
   const text = input?.value.trim();
   if (!text) return;
   if (!S.code) { showToast('그룹 코드가 없어요'); return; }
-  const { error } = await sb.from('comments').insert({
+  const { data, error } = await sb.from('comments').insert({
     book_id: bookId, group_code: S.code, member_name: S.myName, content: text
-  });
+  }).select().single();
   if (error) { showToast('오류: ' + error.message); console.error(error); return; }
   if (input) input.value = '';
+  // 즉시 로컬 state에 추가 후 렌더
+  if (data) S.comments.push(data);
+  renderBooks();
   showToast('댓글이 등록됐어요 💬');
 }
 
