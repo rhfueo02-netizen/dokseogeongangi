@@ -932,22 +932,28 @@ function setRateStar(bookId, n) {
 async function submitRating(bookId) {
   const rating = rateStarState[bookId] || 0;
   const comment = document.getElementById(`rate-comment-${bookId}`)?.value.trim() || '';
-  const { error } = await sb.from('ratings').upsert({
-    book_id: bookId, group_code: S.code, member_name: S.myName, rating, comment
-  }, { onConflict: 'book_id,member_name' });
-  if (error) { showToast('오류: ' + error.message); return; }
+  // 기존 rating 있으면 update, 없으면 insert
+  const existing = S.ratings.find(r => r.book_id === bookId && r.member_name === S.myName);
+  let error;
+  if (existing) {
+    ({ error } = await sb.from('ratings').update({ rating, comment }).eq('id', existing.id));
+  } else {
+    ({ error } = await sb.from('ratings').insert({ book_id: bookId, group_code: S.code, member_name: S.myName, rating, comment }));
+  }
+  if (error) { showToast('오류: ' + error.message); console.error(error); return; }
   showToast('평가가 등록됐어요 ⭐');
 }
 
 /* ── COMMENT ── */
 async function submitComment(bookId) {
   const input = document.getElementById(`cmt-${bookId}`);
-  const content = input?.value.trim();
-  if (!content) return;
+  const text = input?.value.trim();
+  if (!text) return;
+  if (!S.code) { showToast('그룹 코드가 없어요'); return; }
   const { error } = await sb.from('comments').insert({
-    book_id: bookId, group_code: S.code, member_name: S.myName, content
+    book_id: bookId, group_code: S.code, member_name: S.myName, content: text
   });
-  if (error) { showToast('오류: ' + error.message); return; }
+  if (error) { showToast('오류: ' + error.message); console.error(error); return; }
   if (input) input.value = '';
   showToast('댓글이 등록됐어요 💬');
 }
@@ -961,8 +967,13 @@ function renderVotes() {
     const voted = voters.includes(S.myName);
     const pct = Math.round(voters.length / maxV * 100);
     return `<div class="card card-sm">
-      <div style="font-size:14px;font-weight:600;color:var(--brown-800);">${v.title}</div>
-      ${v.author ? `<div style="font-size:12px;color:var(--brown-400);margin-top:2px;">${v.author}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--brown-800);">${v.title}</div>
+          ${v.author ? `<div style="font-size:12px;color:var(--brown-400);margin-top:2px;">${v.author}</div>` : ''}
+        </div>
+        <button onclick="deleteVote(${v.id})" style="font-size:11px;padding:3px 8px;border:1px solid #F09595;border-radius:6px;background:#FCEBEB;color:#A32D2D;cursor:pointer;flex-shrink:0;margin-left:8px;">삭제</button>
+      </div>
       <div class="vote-row">
         <div class="vote-bar-bg"><div class="vote-bar-fill" style="width:${pct}%"></div></div>
         <span class="vote-count">${voters.length}표</span>
@@ -970,6 +981,12 @@ function renderVotes() {
       </div>
     </div>`;
   }).join('');
+}
+
+async function deleteVote(id) {
+  if (!confirm('투표 후보를 삭제할까요?')) return;
+  await sb.from('votes').delete().eq('id', id);
+  showToast('삭제됐어요');
 }
 
 function renderMeetings() {
