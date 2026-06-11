@@ -295,23 +295,37 @@
 <div class="overlay" id="modal-book">
   <div class="modal">
     <div class="modal-title">📖 책 등록</div>
-    <div class="form-group"><label class="form-label">책 제목 *</label><input class="form-input" id="f-title" placeholder="예: 달러구트 꿈 백화점" /></div>
-    <div class="form-group"><label class="form-label">저자</label><input class="form-input" id="f-author" placeholder="예: 이미예" /></div>
-    <div class="form-group"><label class="form-label">구매 링크 (교보문고, YES24 등)</label><input class="form-input" id="f-link" placeholder="https://..." type="url" /></div>
     <div class="form-group">
-      <label class="form-label">표지 이미지 URL</label>
-      <div class="cover-preview-wrap">
-        <input class="form-input" id="f-cover" placeholder="https://..." type="url" oninput="previewCover()" style="flex:1;" />
-        <div class="cover-preview" id="cover-prev"><i class="ti ti-photo"></i></div>
+      <label class="form-label">책 검색</label>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="search-query" placeholder="제목 또는 저자 검색" style="flex:1;" onkeydown="if(event.key==='Enter') searchBooks()" />
+        <button class="add-btn" onclick="searchBooks()" style="flex-shrink:0;padding:10px 14px;"><i class="ti ti-search" style="font-size:15px;"></i></button>
       </div>
     </div>
-    <div class="form-group"><label class="form-label">내 독서 상태</label><select class="form-select" id="f-status"><option value="buying">구입중</option><option value="reading">독서중</option><option value="done">완독</option></select></div>
-    <div class="form-group"><label class="form-label">내 별점</label><div class="star-row" id="star-row"><button class="star-btn" onclick="setStar(1)">★</button><button class="star-btn" onclick="setStar(2)">★</button><button class="star-btn" onclick="setStar(3)">★</button><button class="star-btn" onclick="setStar(4)">★</button><button class="star-btn" onclick="setStar(5)">★</button></div></div>
-    <div class="form-group"><label class="form-label">후기</label><textarea class="form-textarea" id="f-review" placeholder="짧은 소감이라도 남겨봐요"></textarea></div>
-    <div class="form-group"><label class="form-label">논의하고 싶은 주제 (쉼표로 구분)</label><input class="form-input" id="f-topics" placeholder="예: 꿈의 의미, 무의식, 기억" /></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal('modal-book')">취소</button>
-      <button class="btn-confirm" id="btn-book-submit" onclick="submitBook()">등록하기</button>
+    <div id="search-results" style="display:none;margin-bottom:14px;">
+      <div class="form-label" style="margin-bottom:6px;">검색 결과</div>
+      <div id="search-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+    <div id="selected-book" style="display:none;">
+      <div style="display:flex;gap:12px;align-items:flex-start;background:var(--beige-50);border:1px solid var(--beige-200);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+        <div class="cover-preview" id="cover-prev" style="flex-shrink:0;"><i class="ti ti-photo"></i></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:var(--brown-800);" id="sel-title">—</div>
+          <div style="font-size:12px;color:var(--brown-400);margin-top:2px;" id="sel-author">—</div>
+          <button onclick="clearBookSelection()" style="margin-top:6px;font-size:11px;color:var(--brown-400);background:none;border:none;cursor:pointer;padding:0;">✕ 다시 검색</button>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">내 독서 상태</label><select class="form-select" id="f-status"><option value="buying">구입중</option><option value="reading">독서중</option><option value="done">완독</option></select></div>
+      <div class="form-group"><label class="form-label">내 별점</label><div class="star-row" id="star-row"><button class="star-btn" onclick="setStar(1)">★</button><button class="star-btn" onclick="setStar(2)">★</button><button class="star-btn" onclick="setStar(3)">★</button><button class="star-btn" onclick="setStar(4)">★</button><button class="star-btn" onclick="setStar(5)">★</button></div></div>
+      <div class="form-group"><label class="form-label">후기</label><textarea class="form-textarea" id="f-review" placeholder="짧은 소감이라도 남겨봐요"></textarea></div>
+      <div class="form-group"><label class="form-label">논의하고 싶은 주제 (쉼표로 구분)</label><input class="form-input" id="f-topics" placeholder="예: 꿈의 의미, 무의식, 기억" /></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-book')">취소</button>
+        <button class="btn-confirm" id="btn-book-submit" onclick="submitBook()">등록하기</button>
+      </div>
+    </div>
+    <div id="book-cancel-row" style="margin-top:4px;">
+      <button class="btn-cancel" style="width:100%;" onclick="closeModal('modal-book')">취소</button>
     </div>
   </div>
 </div>
@@ -452,12 +466,87 @@ function switchTab(id, el) {
 /* ── MODALS ── */
 function openModal(id) {
   document.getElementById(id).classList.add('open');
-  if (id === 'modal-book') { S.myRating = 0; updateStars(); }
+  if (id === 'modal-book') {
+    S.myRating = 0; updateStars();
+    clearBookSelection();
+    document.getElementById('f-review').value = '';
+    document.getElementById('f-topics').value = '';
+    document.getElementById('f-status').value = 'buying';
+  }
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.overlay').forEach(ov => {
   ov.addEventListener('click', e => { if (e.target === ov) closeModal(ov.id); });
 });
+
+/* ── KAKAO BOOK SEARCH ── */
+const KAKAO_KEY = '6d8c9985447b5e06669da724a566122b';
+let selectedBookData = null;
+
+async function searchBooks() {
+  const q = document.getElementById('search-query').value.trim();
+  if (!q) { showToast('검색어를 입력해주세요'); return; }
+  const btn = document.querySelector('#modal-book .add-btn');
+  btn.innerHTML = '<i class="ti ti-loader" style="font-size:15px;animation:spin 0.7s linear infinite;"></i>';
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(q)}&size=10`,
+      { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } }
+    );
+    const data = await res.json();
+    renderSearchResults(data.documents || []);
+  } catch(e) {
+    showToast('검색 중 오류가 발생했어요');
+  }
+  btn.innerHTML = '<i class="ti ti-search" style="font-size:15px;"></i>';
+}
+
+function renderSearchResults(books) {
+  const el = document.getElementById('search-results');
+  const list = document.getElementById('search-list');
+  if (!books.length) { list.innerHTML = '<div style="font-size:13px;color:var(--brown-400);padding:8px;">검색 결과가 없어요</div>'; el.style.display = 'block'; return; }
+  list.innerHTML = books.map((b, i) => {
+    const authors = (b.authors||[]).join(', ');
+    const thumb = b.thumbnail || '';
+    return `<div onclick="selectBook(${i})" data-idx="${i}" style="display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--beige-200);border-radius:var(--radius-md);cursor:pointer;background:var(--cream);">
+      <div style="width:38px;height:52px;border-radius:3px;overflow:hidden;flex-shrink:0;background:var(--beige-100);display:flex;align-items:center;justify-content:center;color:var(--brown-400);font-size:16px;">
+        ${thumb ? `<img src="${thumb}" style="width:100%;height:100%;object-fit:cover;" />` : '<i class="ti ti-book"></i>'}
+      </div>
+      <div style="min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--brown-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.title}</div>
+        <div style="font-size:11px;color:var(--brown-400);margin-top:2px;">${authors}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.style.display = 'block';
+  el._books = books;
+}
+
+function selectBook(idx) {
+  const books = document.getElementById('search-list').parentElement._books;
+  const b = books[idx];
+  selectedBookData = {
+    title:  b.title,
+    author: (b.authors||[]).join(', '),
+    cover:  b.thumbnail || '',
+    link:   b.url || '',
+  };
+  document.getElementById('sel-title').textContent  = b.title;
+  document.getElementById('sel-author').textContent = (b.authors||[]).join(', ');
+  const prev = document.getElementById('cover-prev');
+  prev.innerHTML = b.thumbnail ? `<img src="${b.thumbnail}" style="width:100%;height:100%;object-fit:cover;" />` : '<i class="ti ti-photo"></i>';
+  document.getElementById('search-results').style.display = 'none';
+  document.getElementById('selected-book').style.display  = 'block';
+  document.getElementById('book-cancel-row').style.display = 'none';
+}
+
+function clearBookSelection() {
+  selectedBookData = null;
+  document.getElementById('selected-book').style.display  = 'none';
+  document.getElementById('book-cancel-row').style.display = 'block';
+  document.getElementById('search-results').style.display = 'none';
+  document.getElementById('search-query').value = '';
+}
 
 /* ── STARS ── */
 function setStar(n) { S.myRating = n; updateStars(); }
@@ -474,16 +563,16 @@ function previewCover() {
 
 /* ── SUBMIT BOOK ── */
 async function submitBook() {
-  const title = document.getElementById('f-title').value.trim();
-  if (!title) { showToast('책 제목을 입력해주세요'); return; }
+  if (!selectedBookData) { showToast('책을 검색해서 선택해주세요'); return; }
   const btn = document.getElementById('btn-book-submit');
   btn.disabled = true; btn.textContent = '저장 중...';
   const topics = document.getElementById('f-topics').value.split(',').map(t => t.trim()).filter(Boolean);
   const { error } = await sb.from('books').insert({
-    group_code: S.code, title,
-    author:     document.getElementById('f-author').value.trim(),
-    link:       document.getElementById('f-link').value.trim(),
-    cover:      document.getElementById('f-cover').value.trim(),
+    group_code: S.code,
+    title:      selectedBookData.title,
+    author:     selectedBookData.author,
+    link:       selectedBookData.link,
+    cover:      selectedBookData.cover,
     status:     document.getElementById('f-status').value,
     rating:     S.myRating,
     review:     document.getElementById('f-review').value.trim(),
@@ -493,9 +582,10 @@ async function submitBook() {
   btn.disabled = false; btn.textContent = '등록하기';
   if (error) { showToast('오류: ' + error.message); return; }
   closeModal('modal-book');
-  ['f-title','f-author','f-link','f-cover','f-review','f-topics'].forEach(id => document.getElementById(id).value = '');
+  clearBookSelection();
+  document.getElementById('f-review').value = '';
+  document.getElementById('f-topics').value = '';
   document.getElementById('f-status').value = 'buying';
-  document.getElementById('cover-prev').innerHTML = '<i class="ti ti-photo"></i>';
   showToast('책이 등록됐어요 📚');
 }
 
