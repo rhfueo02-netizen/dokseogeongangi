@@ -557,8 +557,8 @@ async function searchBooks() {
   btn.innerHTML = '<i class="ti ti-loader" style="font-size:15px;animation:spin 0.7s linear infinite;"></i>';
   try {
     const res = await fetch(
-      `https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(q)}&size=10`,
-      { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } }
+      'https://bqgppnsrfzphfsvvujdj.supabase.co/functions/v1/super-function',
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY }, body: JSON.stringify({ query: q }) }
     );
     const data = await res.json();
     renderSearchResults(data.documents || []);
