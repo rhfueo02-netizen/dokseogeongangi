@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>독서건강이</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="독서건강이" />
+<meta name="theme-color" content="#3A2E22" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --beige-50: #FAF7F2; --beige-100: #F2EDE3; --beige-200: #E8E0D0;
+    --beige-300: #D6C9B0; --brown-400: #8B6F52; --brown-600: #5C4A36;
+    --brown-800: #3A2E22; --sage: #7A8C72; --sage-light: #EBF0E8;
+    --amber-warm: #C4813A; --cream: #FDF9F4;
+    --radius-md: 8px; --radius-lg: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Noto Sans KR', sans-serif; background: var(--beige-50); color: var(--brown-800); min-height: 100dvh; }
+
+  /* SETUP */
+  .setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; gap: 14px; padding: 2rem; }
+  .setup-logo { width: 64px; height: 64px; background: var(--brown-800); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--beige-100); margin-bottom: 4px; }
+  .setup-title { font-size: 22px; font-weight: 600; color: var(--brown-800); }
+  .setup-desc { font-size: 14px; color: var(--brown-400); text-align: center; max-width: 300px; line-height: 1.6; }
+  .setup-name-input { border: 1px solid var(--beige-300); border-radius: var(--radius-md); padding: 12px 16px; font-size: 15px; background: var(--cream); color: var(--brown-800); outline: none; width: 240px; text-align: center; }
+  .setup-name-input:focus { border-color: var(--brown-400); }
+  .btn-primary { background: var(--brown-800); color: var(--beige-100); border: none; border-radius: var(--radius-md); padding: 13px 28px; font-size: 15px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity 0.15s; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .setup-or { font-size: 13px; color: var(--brown-400); margin: 4px 0; }
+  .join-row { display: flex; gap: 8px; }
+  .join-input { border: 1px solid var(--beige-300); border-radius: var(--radius-md); padding: 12px 14px; font-size: 16px; background: var(--cream); color: var(--brown-800); outline: none; width: 160px; text-align: center; letter-spacing: 4px; font-weight: 600; text-transform: uppercase; }
+  .join-input:focus { border-color: var(--brown-400); }
+  .btn-secondary { border: 1px solid var(--beige-300); background: var(--beige-100); border-radius: var(--radius-md); padding: 12px 18px; font-size: 14px; color: var(--brown-600); cursor: pointer; transition: background 0.15s; }
+  .btn-secondary:hover { background: var(--beige-200); }
+  .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* APP */
+  #app { display: none; min-height: 100dvh; flex-direction: column; }
+  #app.visible { display: flex; }
+  .header { background: var(--cream); border-bottom: 1px solid var(--beige-200); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-logo { width: 34px; height: 34px; background: var(--brown-800); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--beige-100); }
+  .header-title { font-size: 15px; font-weight: 600; color: var(--brown-800); }
+  .header-sub { font-size: 11px; color: var(--brown-400); margin-top: 1px; }
+  .group-badge { background: var(--beige-100); border: 1px solid var(--beige-300); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: var(--brown-600); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .group-badge:hover { background: var(--beige-200); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); display: inline-block; }
+  .sync-dot.off { background: var(--beige-300); }
+
+  .nav { background: var(--cream); border-bottom: 1px solid var(--beige-200); display: flex; padding: 0 20px; overflow-x: auto; }
+  .nav-item { padding: 13px 18px; font-size: 13px; font-weight: 500; color: var(--brown-400); cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: color 0.15s; }
+  .nav-item.active { color: var(--brown-800); border-bottom-color: var(--brown-800); }
+
+  .content { flex: 1; padding: 20px; max-width: 720px; margin: 0 auto; width: 100%; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  .card { background: var(--cream); border: 1px solid var(--beige-200); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 14px; }
+  .card-sm { padding: 14px 16px; }
+
+  /* JOURNEY */
+  .journey-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .journey-label { font-size: 12px; color: var(--brown-400); margin-bottom: 4px; }
+  .journey-book { font-size: 17px; font-weight: 600; color: var(--brown-800); }
+  .journey-author { font-size: 13px; color: var(--brown-400); margin-top: 3px; }
+  .book-thumb { width: 54px; height: 76px; border-radius: 5px; flex-shrink: 0; border: 1px solid var(--beige-300); background: var(--beige-100); display: flex; align-items: center; justify-content: center; color: var(--brown-400); font-size: 22px; overflow: hidden; }
+  .book-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .path-wrap { position: relative; height: 110px; margin: 8px 0 16px; }
+  .path-svg { width: 100%; height: 100%; }
+  .members-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 480px) { .members-grid { grid-template-columns: 1fr; } }
+  .member-card { background: var(--beige-50); border: 1px solid var(--beige-200); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+  .member-top { display: flex; align-items: center; gap: 9px; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  .av-0 { background: var(--brown-800); color: var(--beige-100); }
+  .av-1 { background: #C4813A22; color: var(--amber-warm); border: 1px solid #C4813A44; }
+  .av-2 { background: #7A8C7222; color: var(--sage); border: 1px solid #7A8C7244; }
+  .member-name { font-size: 13px; font-weight: 600; color: var(--brown-800); }
+  .member-meta { font-size: 11px; color: var(--brown-400); }
+  .status-pill { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 10px; display: inline-block; }
+  .sp-buying { background: var(--beige-200); color: var(--brown-400); }
+  .sp-reading { background: #C4813A1A; color: var(--amber-warm); }
+  .sp-done { background: var(--sage-light); color: var(--sage); }
+  .prog-row { display: flex; justify-content: space-between; align-items: center; }
+  .prog-pct { font-size: 11px; color: var(--brown-400); }
+  .prog-bar { height: 4px; background: var(--beige-200); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+  .pf-0 { background: var(--brown-800); }
+  .pf-1 { background: var(--amber-warm); }
+  .pf-2 { background: var(--sage); }
+
+  /* SHARE */
+  .share-card { text-align: center; }
+  .share-label { font-size: 12px; color: var(--brown-400); margin-bottom: 6px; }
+  .code-big { font-size: 32px; font-weight: 700; letter-spacing: 8px; color: var(--brown-800); margin-bottom: 8px; }
+  .share-hint { font-size: 12px; color: var(--brown-400); margin-bottom: 14px; line-height: 1.5; }
+  .copy-btn { border: 1px solid var(--beige-300); background: var(--beige-100); border-radius: var(--radius-md); padding: 9px 20px; font-size: 13px; color: var(--brown-600); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s; }
+  .copy-btn:hover { background: var(--beige-200); }
+
+  /* BOOKS */
+  .section-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .section-title { font-size: 15px; font-weight: 600; color: var(--brown-800); }
+  .add-btn { background: var(--brown-800); color: var(--beige-100); border: none; border-radius: var(--radius-md); padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.15s; }
+  .add-btn:hover { opacity: 0.85; }
+  .book-card { display: flex; gap: 14px; }
+  .book-cover { width: 68px; height: 94px; border-radius: 5px; flex-shrink: 0; border: 1px solid var(--beige-300); background: var(--beige-100); display: flex; align-items: center; justify-content: center; color: var(--brown-400); font-size: 26px; overflow: hidden; }
+  .book-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .book-info { flex: 1; min-width: 0; }
+  .book-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .book-title { font-size: 15px; font-weight: 600; color: var(--brown-800); line-height: 1.3; }
+  .book-author { font-size: 13px; color: var(--brown-400); margin-top: 2px; }
+  .buy-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; color: var(--amber-warm); text-decoration: none; border: 1px solid #C4813A44; border-radius: 6px; padding: 3px 9px; transition: background 0.15s; }
+  .buy-link:hover { background: #C4813A11; }
+  .ratings-row { display: flex; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+  .rating-item { display: flex; align-items: center; gap: 6px; }
+  .rater-dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+  .stars-on { color: var(--amber-warm); }
+  .stars-off { color: var(--beige-300); }
+  .review-block { margin-top: 10px; }
+  .review-lbl { font-size: 11px; color: var(--brown-400); margin-bottom: 4px; }
+  .review-text { font-size: 13px; color: var(--brown-600); line-height: 1.55; background: var(--beige-50); border: 1px solid var(--beige-200); border-radius: var(--radius-md); padding: 9px 11px; }
+  .topic-chip { display: inline-block; background: var(--sage-light); color: var(--sage); font-size: 11px; padding: 3px 10px; border-radius: 12px; margin: 3px 3px 0 0; }
+
+  /* VOTE */
+  .vote-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .vote-bar-bg { flex: 1; height: 6px; background: var(--beige-200); border-radius: 3px; overflow: hidden; }
+  .vote-bar-fill { height: 100%; border-radius: 3px; background: var(--brown-800); transition: width 0.3s; }
+  .vote-count { font-size: 12px; color: var(--brown-400); min-width: 28px; text-align: right; }
+  .vote-btn { border: 1px solid var(--beige-300); background: var(--beige-50); border-radius: var(--radius-md); padding: 6px 14px; font-size: 12px; color: var(--brown-600); cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+  .vote-btn:hover { background: var(--beige-200); }
+  .vote-btn.voted { background: var(--brown-800); color: var(--beige-100); border-color: var(--brown-800); }
+
+  /* MEETINGS */
+  .meeting-item { display: flex; gap: 14px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid var(--beige-200); }
+  .meeting-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .meeting-item:first-child { padding-top: 0; }
+  .date-box { background: var(--brown-800); color: var(--beige-100); border-radius: var(--radius-md); padding: 7px 11px; text-align: center; flex-shrink: 0; min-width: 48px; }
+  .date-month { font-size: 10px; opacity: 0.65; }
+  .date-day { font-size: 20px; font-weight: 700; line-height: 1; }
+  .meeting-book { font-size: 14px; font-weight: 600; color: var(--brown-800); }
+  .meeting-memo { font-size: 13px; color: var(--brown-400); margin-top: 3px; line-height: 1.45; }
+
+  /* EMPTY */
+  .empty { text-align: center; padding: 40px 20px; color: var(--brown-400); font-size: 13px; }
+  .empty i { font-size: 36px; display: block; margin-bottom: 10px; opacity: 0.5; }
+
+  /* MODAL */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(58,46,34,0.45); z-index: 200; align-items: flex-end; justify-content: center; }
+  .overlay.open { display: flex; }
+  @media (min-width: 600px) { .overlay { align-items: center; } .modal { border-radius: var(--radius-lg) !important; max-width: 420px; } }
+  .modal { background: var(--cream); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 24px 20px 32px; width: 100%; max-height: 90dvh; overflow-y: auto; }
+  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 18px; color: var(--brown-800); }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 12px; color: var(--brown-400); margin-bottom: 5px; display: block; }
+  .form-input, .form-select, .form-textarea { width: 100%; border: 1px solid var(--beige-300); border-radius: var(--radius-md); padding: 10px 12px; font-size: 14px; background: var(--beige-50); color: var(--brown-800); outline: none; font-family: inherit; -webkit-appearance: none; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--brown-400); }
+  .form-textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .btn-cancel { flex: 1; padding: 12px; border: 1px solid var(--beige-300); background: var(--beige-100); border-radius: var(--radius-md); font-size: 14px; color: var(--brown-600); cursor: pointer; }
+  .btn-confirm { flex: 2; padding: 12px; border: none; background: var(--brown-800); border-radius: var(--radius-md); font-size: 14px; font-weight: 600; color: var(--beige-100); cursor: pointer; transition: opacity 0.15s; }
+  .btn-confirm:hover { opacity: 0.85; }
+  .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .star-row { display: flex; gap: 6px; }
+  .star-btn { font-size: 26px; cursor: pointer; color: var(--beige-300); background: none; border: none; padding: 0; line-height: 1; }
+  .star-btn.on { color: var(--amber-warm); }
+  .cover-preview-wrap { display: flex; gap: 10px; align-items: flex-start; }
+  .cover-preview { width: 54px; height: 76px; border-radius: 5px; border: 1px dashed var(--beige-300); background: var(--beige-50); display: flex; align-items: center; justify-content: center; color: var(--brown-400); font-size: 20px; overflow: hidden; flex-shrink: 0; }
+  .cover-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--brown-800); color: var(--beige-100); padding: 10px 20px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  /* LOADING */
+  .loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; gap: 14px; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--beige-200); border-top-color: var(--brown-800); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="setup-screen">
+    <div class="setup-logo"><i class="ti ti-book-2"></i></div>
+    <div class="setup-title">독서건강이</div>
+    <div class="setup-desc">세 명이서 함께 읽고, 나누고, 기록하는 독서 모임 공간이에요.</div>
+    <input class="setup-name-input" id="setup-name" placeholder="내 이름을 입력해주세요" />
+    <button class="btn-primary" id="btn-create" onclick="createGroup()">
+      <i class="ti ti-sparkles"></i> 새 그룹 만들기
+    </button>
+    <div class="setup-or">또는</div>
+    <div class="join-row">
+      <input class="join-input" id="join-code" placeholder="코드 입력" maxlength="6" oninput="this.value=this.value.toUpperCase()" />
+      <button class="btn-secondary" id="btn-join" onclick="joinGroup()">참여하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo"><i class="ti ti-book-2"></i></div>
+      <div>
+        <div class="header-title">독서건강이</div>
+        <div class="header-sub" id="hdr-name">나의 독서 모임</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="sync-dot off" id="sync-dot" title="실시간 연결 상태"></span>
+      <div class="group-badge" onclick="copyCode()" title="코드 복사">
+        <i class="ti ti-users" style="font-size:13px;"></i>
+        <span id="hdr-code">——</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-item active" onclick="switchTab('journey',this)">여정</div>
+    <div class="nav-item" onclick="switchTab('books',this)">독서 기록</div>
+    <div class="nav-item" onclick="switchTab('meeting',this)">독서 모임</div>
+  </div>
+
+  <div class="content">
+    <!-- 여정 -->
+    <div class="tab-pane active" id="tab-journey">
+      <div class="card">
+        <div class="journey-header">
+          <div>
+            <div class="journey-label">지금 함께 읽는 책</div>
+            <div class="journey-book" id="j-book-title">아직 등록된 책이 없어요</div>
+            <div class="journey-author" id="j-book-author">독서 기록 탭에서 책을 추가해보세요</div>
+          </div>
+          <div class="book-thumb" id="j-cover"><i class="ti ti-book"></i></div>
+        </div>
+        <div class="path-wrap">
+          <svg class="path-svg" viewBox="0 0 600 110" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <marker id="arr" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+                <path d="M0,0 L7,3.5 L0,7 Z" fill="#D6C9B0"/>
+              </marker>
+            </defs>
+            <path d="M50,80 C120,80 160,25 240,35 S380,90 460,55 S550,20 570,28" stroke="#D6C9B0" stroke-width="2.5" fill="none" stroke-dasharray="7,5" marker-end="url(#arr)"/>
+            <circle cx="570" cy="28" r="13" fill="#F2EDE3" stroke="#8B6F52" stroke-width="1.5"/>
+            <text x="570" y="33" font-size="13" text-anchor="middle" fill="#5C4A36">🏁</text>
+            <g id="dot-0" transform="translate(50,80)"><circle r="14" fill="#3A2E22" stroke="#FAF7F2" stroke-width="2.5"/><text id="dot-0-txt" font-size="10" font-weight="600" text-anchor="middle" dy="4" fill="#F2EDE3">나</text></g>
+            <g id="dot-1" transform="translate(50,80)"><circle r="11" fill="#C4813A" stroke="#FAF7F2" stroke-width="2" opacity="0.9"/><text font-size="9" font-weight="600" text-anchor="middle" dy="3.5" fill="#FDF9F4">?</text></g>
+            <g id="dot-2" transform="translate(50,80)"><circle r="11" fill="#7A8C72" stroke="#FAF7F2" stroke-width="2" opacity="0.9"/><text font-size="9" font-weight="600" text-anchor="middle" dy="3.5" fill="#FDF9F4">?</text></g>
+          </svg>
+        </div>
+        <div class="members-grid" id="members-grid"></div>
+      </div>
+      <div class="card share-card">
+        <div class="share-label">그룹 코드 공유</div>
+        <div class="code-big" id="share-code">——</div>
+        <div class="share-hint">이 코드를 친구에게 공유하면<br>실시간으로 독서 기록을 함께 볼 수 있어요.</div>
+        <button class="copy-btn" onclick="copyCode()"><i class="ti ti-copy" style="font-size:15px;"></i> 코드 복사</button>
+      </div>
+    </div>
+
+    <!-- 독서 기록 -->
+    <div class="tab-pane" id="tab-books">
+      <div class="section-row">
+        <div class="section-title">독서 기록</div>
+        <button class="add-btn" onclick="openModal('modal-book')"><i class="ti ti-plus" style="font-size:15px;"></i> 책 추가</button>
+      </div>
+      <div id="books-list"></div>
+    </div>
+
+    <!-- 독서 모임 -->
+    <div class="tab-pane" id="tab-meeting">
+      <div class="section-row">
+        <div class="section-title">다음 읽을 책 투표</div>
+        <button class="add-btn" onclick="openModal('modal-vote')"><i class="ti ti-plus" style="font-size:15px;"></i> 후보 추가</button>
+      </div>
+      <div id="vote-list"></div>
+      <div class="section-row" style="margin-top:24px;">
+        <div class="section-title">모임 일정</div>
+        <button class="add-btn" onclick="openModal('modal-meeting')"><i class="ti ti-plus" style="font-size:15px;"></i> 일정 추가</button>
+      </div>
+      <div class="card card-sm" id="meeting-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 책 -->
+<div class="overlay" id="modal-book">
+  <div class="modal">
+    <div class="modal-title">📖 책 등록</div>
+    <div class="form-group"><label class="form-label">책 제목 *</label><input class="form-input" id="f-title" placeholder="예: 달러구트 꿈 백화점" /></div>
+    <div class="form-group"><label class="form-label">저자</label><input class="form-input" id="f-author" placeholder="예: 이미예" /></div>
+    <div class="form-group"><label class="form-label">구매 링크 (교보문고, YES24 등)</label><input class="form-input" id="f-link" placeholder="https://..." type="url" /></div>
+    <div class="form-group">
+      <label class="form-label">표지 이미지 URL</label>
+      <div class="cover-preview-wrap">
+        <input class="form-input" id="f-cover" placeholder="https://..." type="url" oninput="previewCover()" style="flex:1;" />
+        <div class="cover-preview" id="cover-prev"><i class="ti ti-photo"></i></div>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">내 독서 상태</label><select class="form-select" id="f-status"><option value="buying">구입중</option><option value="reading">독서중</option><option value="done">완독</option></select></div>
+    <div class="form-group"><label class="form-label">내 별점</label><div class="star-row" id="star-row"><button class="star-btn" onclick="setStar(1)">★</button><button class="star-btn" onclick="setStar(2)">★</button><button class="star-btn" onclick="setStar(3)">★</button><button class="star-btn" onclick="setStar(4)">★</button><button class="star-btn" onclick="setStar(5)">★</button></div></div>
+    <div class="form-group"><label class="form-label">후기</label><textarea class="form-textarea" id="f-review" placeholder="짧은 소감이라도 남겨봐요"></textarea></div>
+    <div class="form-group"><label class="form-label">논의하고 싶은 주제 (쉼표로 구분)</label><input class="form-input" id="f-topics" placeholder="예: 꿈의 의미, 무의식, 기억" /></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-book')">취소</button>
+      <button class="btn-confirm" id="btn-book-submit" onclick="submitBook()">등록하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 투표 -->
+<div class="overlay" id="modal-vote">
+  <div class="modal">
+    <div class="modal-title">🗳️ 투표 후보 추가</div>
+    <div class="form-group"><label class="form-label">책 제목 *</label><input class="form-input" id="v-title" placeholder="예: 채식주의자" /></div>
+    <div class="form-group"><label class="form-label">저자</label><input class="form-input" id="v-author" placeholder="예: 한강" /></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-vote')">취소</button>
+      <button class="btn-confirm" id="btn-vote-submit" onclick="submitVote()">추가하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 모임 -->
+<div class="overlay" id="modal-meeting">
+  <div class="modal">
+    <div class="modal-title">📅 모임 일정 추가</div>
+    <div class="form-group"><label class="form-label">날짜 *</label><input class="form-input" id="m-date" type="date" /></div>
+    <div class="form-group"><label class="form-label">다루는 책</label><input class="form-input" id="m-book" placeholder="예: 채식주의자" /></div>
+    <div class="form-group"><label class="form-label">메모</label><textarea class="form-textarea" id="m-memo" placeholder="장소, 준비사항 등 자유롭게"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-meeting')">취소</button>
+      <button class="btn-confirm" id="btn-meeting-submit" onclick="submitMeeting()">추가하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://bqgppnsrfzphfsvvujdj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxZ3BwbnNyZnpwaGZzdnZ1amRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzI4MTMsImV4cCI6MjA5Njc0ODgxM30.qtSj4QmbyybvTiI7ZKFQwRNOVi8D3Crw8PZ8GliMtsI';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STATUS = {
+  buying:  { label:'구입중',  cls:'sp-buying',  pct:5   },
+  reading: { label:'독서중',  cls:'sp-reading', pct:50  },
+  done:    { label:'완독',    cls:'sp-done',    pct:100 },
+};
+
+const S = { code: null, myName: '나', myRating: 0, books: [], votes: [], meetings: [], members: [] };
+
+/* ── SETUP ── */
+function genCode() { return Math.random().toString(36).substring(2,8).toUpperCase(); }
+
+async function createGroup() {
+  const name = document.getElementById('setup-name').value.trim();
+  if (!name) { showToast('이름을 입력해주세요 😊'); return; }
+  setSetupLoading(true);
+  const code = genCode();
+  const { error } = await sb.from('groups').insert({ code });
+  if (error) { showToast('오류가 발생했어요: ' + error.message); setSetupLoading(false); return; }
+  S.myName = name; S.code = code;
+  localStorage.setItem('dsg_name', name);
+  localStorage.setItem('dsg_code', code);
+  await enterApp();
+}
+
+async function joinGroup() {
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  const name = document.getElementById('setup-name').value.trim();
+  if (!name) { showToast('이름을 입력해주세요 😊'); return; }
+  if (code.length < 4) { showToast('그룹 코드를 입력해주세요'); return; }
+  setSetupLoading(true);
+  const { data, error } = await sb.from('groups').select('code').eq('code', code).single();
+  if (error || !data) { showToast('존재하지 않는 코드예요'); setSetupLoading(false); return; }
+  S.myName = name; S.code = code;
+  localStorage.setItem('dsg_name', name);
+  localStorage.setItem('dsg_code', code);
+  await enterApp();
+}
+
+function setSetupLoading(on) {
+  document.getElementById('btn-create').disabled = on;
+  document.getElementById('btn-join').disabled = on;
+}
+
+async function enterApp() {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('hdr-name').textContent = S.myName + '의 독서 모임';
+  document.getElementById('hdr-code').textContent = S.code;
+  document.getElementById('share-code').textContent = S.code;
+  await loadAll();
+  subscribeRealtime();
+}
+
+/* ── LOAD ── */
+async function loadAll() {
+  const [bRes, vRes, mRes] = await Promise.all([
+    sb.from('books').select('*').eq('group_code', S.code).order('created_at', { ascending: false }),
+    sb.from('votes').select('*').eq('group_code', S.code).order('created_at', { ascending: true }),
+    sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: true }),
+  ]);
+  S.books    = bRes.data || [];
+  S.votes    = vRes.data || [];
+  S.meetings = mRes.data || [];
+  renderAll();
+}
+
+/* ── REALTIME ── */
+function subscribeRealtime() {
+  document.getElementById('sync-dot').classList.remove('off');
+  sb.channel('group-' + S.code)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'books',    filter: 'group_code=eq.' + S.code }, () => reloadTable('books'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'votes',    filter: 'group_code=eq.' + S.code }, () => reloadTable('votes'))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings', filter: 'group_code=eq.' + S.code }, () => reloadTable('meetings'))
+    .subscribe(status => {
+      document.getElementById('sync-dot').classList.toggle('off', status !== 'SUBSCRIBED');
+    });
+}
+
+async function reloadTable(table) {
+  if (table === 'books') {
+    const { data } = await sb.from('books').select('*').eq('group_code', S.code).order('created_at', { ascending: false });
+    S.books = data || []; renderBooks(); renderJourney();
+  } else if (table === 'votes') {
+    const { data } = await sb.from('votes').select('*').eq('group_code', S.code).order('created_at', { ascending: true });
+    S.votes = data || []; renderVotes();
+  } else if (table === 'meetings') {
+    const { data } = await sb.from('meetings').select('*').eq('group_code', S.code).order('date', { ascending: true });
+    S.meetings = data || []; renderMeetings();
+  }
+}
+
+/* ── TABS ── */
+function switchTab(id, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+/* ── MODALS ── */
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  if (id === 'modal-book') { S.myRating = 0; updateStars(); }
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target === ov) closeModal(ov.id); });
+});
+
+/* ── STARS ── */
+function setStar(n) { S.myRating = n; updateStars(); }
+function updateStars() {
+  document.querySelectorAll('#star-row .star-btn').forEach((b, i) => b.classList.toggle('on', i < S.myRating));
+}
+
+/* ── COVER PREVIEW ── */
+function previewCover() {
+  const url = document.getElementById('f-cover').value.trim();
+  const box = document.getElementById('cover-prev');
+  box.innerHTML = url ? `<img src="${url}" onerror="this.parentNode.innerHTML='<i class=ti ti-photo></i>'" />` : `<i class="ti ti-photo"></i>`;
+}
+
+/* ── SUBMIT BOOK ── */
+async function submitBook() {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { showToast('책 제목을 입력해주세요'); return; }
+  const btn = document.getElementById('btn-book-submit');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  const topics = document.getElementById('f-topics').value.split(',').map(t => t.trim()).filter(Boolean);
+  const { error } = await sb.from('books').insert({
+    group_code: S.code, title,
+    author:     document.getElementById('f-author').value.trim(),
+    link:       document.getElementById('f-link').value.trim(),
+    cover:      document.getElementById('f-cover').value.trim(),
+    status:     document.getElementById('f-status').value,
+    rating:     S.myRating,
+    review:     document.getElementById('f-review').value.trim(),
+    topics,
+    added_by:   S.myName,
+  });
+  btn.disabled = false; btn.textContent = '등록하기';
+  if (error) { showToast('오류: ' + error.message); return; }
+  closeModal('modal-book');
+  ['f-title','f-author','f-link','f-cover','f-review','f-topics'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-status').value = 'buying';
+  document.getElementById('cover-prev').innerHTML = '<i class="ti ti-photo"></i>';
+  showToast('책이 등록됐어요 📚');
+}
+
+/* ── SUBMIT VOTE ── */
+async function submitVote() {
+  const title = document.getElementById('v-title').value.trim();
+  if (!title) { showToast('책 제목을 입력해주세요'); return; }
+  const btn = document.getElementById('btn-vote-submit');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  const { error } = await sb.from('votes').insert({
+    group_code: S.code, title,
+    author: document.getElementById('v-author').value.trim(),
+    voters: [],
+  });
+  btn.disabled = false; btn.textContent = '추가하기';
+  if (error) { showToast('오류: ' + error.message); return; }
+  closeModal('modal-vote');
+  document.getElementById('v-title').value = '';
+  document.getElementById('v-author').value = '';
+  showToast('투표 후보가 추가됐어요 🗳️');
+}
+
+/* ── TOGGLE VOTE ── */
+async function toggleVote(id, currentVoters) {
+  const voters = [...currentVoters];
+  const idx = voters.indexOf(S.myName);
+  if (idx >= 0) voters.splice(idx, 1); else voters.push(S.myName);
+  await sb.from('votes').update({ voters }).eq('id', id);
+}
+
+/* ── SUBMIT MEETING ── */
+async function submitMeeting() {
+  const date = document.getElementById('m-date').value;
+  if (!date) { showToast('날짜를 선택해주세요'); return; }
+  const btn = document.getElementById('btn-meeting-submit');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  const { error } = await sb.from('meetings').insert({
+    group_code: S.code, date,
+    book: document.getElementById('m-book').value.trim(),
+    memo: document.getElementById('m-memo').value.trim(),
+  });
+  btn.disabled = false; btn.textContent = '추가하기';
+  if (error) { showToast('오류: ' + error.message); return; }
+  closeModal('modal-meeting');
+  document.getElementById('m-date').value = '';
+  document.getElementById('m-book').value = '';
+  document.getElementById('m-memo').value = '';
+  showToast('모임 일정이 추가됐어요 📅');
+}
+
+/* ── RENDER ── */
+function renderAll() { renderJourney(); renderBooks(); renderVotes(); renderMeetings(); }
+
+function renderJourney() {
+  const latest = S.books[0];
+  if (!latest) { buildMembersGrid([]); return; }
+  document.getElementById('j-book-title').textContent  = latest.title;
+  document.getElementById('j-book-author').textContent = latest.author || '';
+  const cover = document.getElementById('j-cover');
+  cover.innerHTML = latest.cover
+    ? `<img src="${latest.cover}" onerror="this.parentNode.innerHTML='<i class=ti ti-book></i>'" />`
+    : `<i class="ti ti-book"></i>`;
+
+  // 멤버별 최신 상태 모으기 (같은 책 기준)
+  const memberMap = {};
+  S.books.forEach(b => {
+    if (!memberMap[b.added_by]) memberMap[b.added_by] = b;
+  });
+  const members = Object.values(memberMap);
+  buildMembersGrid(members);
+
+  // 내 상태 점 위치
+  const myBook = memberMap[S.myName] || latest;
+  const myPct = STATUS[myBook.status]?.pct || 0;
+  const colors = ['#3A2E22','#C4813A','#7A8C72'];
+  members.forEach((m, i) => {
+    const pct = STATUS[m.status]?.pct || 0;
+    const offset = i * 0.05;
+    const pos = pathPoint(Math.min(pct / 100 + offset, 0.97));
+    const g = document.getElementById('dot-' + i);
+    if (g) {
+      g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+      const txt = g.querySelector('text');
+      if (txt) txt.textContent = m.added_by.slice(0,1);
+    }
+  });
+}
+
+function buildMembersGrid(members) {
+  const grid = document.getElementById('members-grid');
+  if (!members.length) {
+    grid.innerHTML = `<div class="member-card" style="grid-column:1/-1;"><div class="member-top"><div class="avatar av-0">${S.myName.slice(0,1)}</div><div><div class="member-name">${S.myName}</div><div class="member-meta">나</div></div></div><div class="prog-row"><span class="status-pill sp-buying">대기중</span><span class="prog-pct">0%</span></div><div class="prog-bar"><div class="prog-fill pf-0" style="width:0%"></div></div></div>`;
+    return;
+  }
+  grid.innerHTML = members.slice(0,3).map((m, i) => {
+    const sm = STATUS[m.status] || STATUS.buying;
+    const isMe = m.added_by === S.myName;
+    return `<div class="member-card">
+      <div class="member-top">
+        <div class="avatar av-${i}">${m.added_by.slice(0,1)}</div>
+        <div><div class="member-name">${m.added_by}</div><div class="member-meta">${isMe ? '나' : '함께 읽는 중'}</div></div>
+      </div>
+      <div class="prog-row">
+        <span class="status-pill ${sm.cls}">${sm.label}</span>
+        <span class="prog-pct">${sm.pct}%</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill pf-${i}" style="width:${sm.pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderBooks() {
+  const el = document.getElementById('books-list');
+  if (!S.books.length) { el.innerHTML = `<div class="empty"><i class="ti ti-book-off"></i>아직 등록된 책이 없어요<br>첫 책을 추가해보세요!</div>`; return; }
+  el.innerHTML = S.books.map(b => {
+    const sm = STATUS[b.status] || STATUS.buying;
+    const stars = '★'.repeat(b.rating||0) + `<span class="stars-off">${'★'.repeat(5-(b.rating||0))}</span>`;
+    const cover = b.cover ? `<img src="${b.cover}" onerror="this.parentNode.innerHTML='<i class=ti ti-book></i>'" />` : `<i class="ti ti-book"></i>`;
+    const buyBtn = b.link ? `<a href="${b.link}" class="buy-link" target="_blank" rel="noopener"><i class="ti ti-shopping-cart" style="font-size:12px;"></i> 구매하기</a>` : '';
+    const reviewHtml = b.review ? `<div class="review-block"><div class="review-lbl">후기 · ${b.added_by}</div><div class="review-text">${b.review}</div></div>` : '';
+    const topicsHtml = b.topics?.length ? `<div class="review-block"><div class="review-lbl">논의 주제</div><div>${b.topics.map(t=>`<span class="topic-chip">${t}</span>`).join('')}</div></div>` : '';
+    return `<div class="card"><div class="book-card">
+      <div class="book-cover">${cover}</div>
+      <div class="book-info">
+        <div class="book-title-row">
+          <div><div class="book-title">${b.title}</div><div class="book-author">${b.author||''}</div>${buyBtn}</div>
+          <span class="status-pill ${sm.cls}" style="flex-shrink:0;">${sm.label}</span>
+        </div>
+        ${b.rating ? `<div class="ratings-row"><div class="rating-item"><div class="rater-dot av-0">${(b.added_by||'?').slice(0,1)}</div><span class="stars-on" style="font-size:14px;">${stars}</span></div></div>` : ''}
+        ${reviewHtml}${topicsHtml}
+      </div>
+    </div></div>`;
+  }).join('');
+}
+
+function renderVotes() {
+  const el = document.getElementById('vote-list');
+  if (!S.votes.length) { el.innerHTML = `<div class="empty"><i class="ti ti-list-check"></i>투표할 책을 추가해보세요!</div>`; return; }
+  const maxV = Math.max(...S.votes.map(v => (v.voters||[]).length), 1);
+  el.innerHTML = S.votes.map(v => {
+    const voters = v.voters || [];
+    const voted = voters.includes(S.myName);
+    const pct = Math.round(voters.length / maxV * 100);
+    return `<div class="card card-sm">
+      <div style="font-size:14px;font-weight:600;color:var(--brown-800);">${v.title}</div>
+      ${v.author ? `<div style="font-size:12px;color:var(--brown-400);margin-top:2px;">${v.author}</div>` : ''}
+      <div class="vote-row">
+        <div class="vote-bar-bg"><div class="vote-bar-fill" style="width:${pct}%"></div></div>
+        <span class="vote-count">${voters.length}표</span>
+        <button class="vote-btn ${voted?'voted':''}" onclick='toggleVote(${v.id}, ${JSON.stringify(voters)})'>${voted?'취소':'투표'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMeetings() {
+  const el = document.getElementById('meeting-list');
+  if (!S.meetings.length) { el.innerHTML = `<div class="empty" style="padding:1rem;"><i class="ti ti-calendar-off"></i>모임 일정을 추가해보세요!</div>`; return; }
+  el.innerHTML = S.meetings.map(m => {
+    const d = new Date(m.date + 'T00:00:00');
+    return `<div class="meeting-item">
+      <div class="date-box"><div class="date-month">${d.toLocaleString('ko-KR',{month:'short'})}</div><div class="date-day">${d.getDate()}</div></div>
+      <div><div class="meeting-book">${m.book||'미정'}</div>${m.memo?`<div class="meeting-memo">${m.memo}</div>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── PATH ── */
+function pathPoint(t) {
+  const pts = [{x:50,y:80},{x:120,y:80},{x:160,y:25},{x:240,y:35},{x:380,y:90},{x:460,y:55},{x:550,y:20},{x:570,y:28}];
+  const n = pts.length - 1;
+  const seg = Math.min(Math.floor(t * n), n - 1);
+  const lt = (t * n) - seg;
+  const p0 = pts[Math.max(seg-1,0)], p1 = pts[seg], p2 = pts[Math.min(seg+1,n)], p3 = pts[Math.min(seg+2,n)];
+  const cm = (a,b,c,d,u) => 0.5*((2*b)+(-a+c)*u+(2*a-5*b+4*c-d)*u*u+(-a+3*b-3*c+d)*u*u*u);
+  return { x: Math.round(cm(p0.x,p1.x,p2.x,p3.x,lt)), y: Math.round(cm(p0.y,p1.y,p2.y,p3.y,lt)) };
+}
+
+/* ── COPY ── */
+function copyCode() {
+  if (!S.code) return;
+  navigator.clipboard.writeText(S.code)
+    .then(() => showToast('코드 복사 완료! 친구에게 보내보세요 ✉️'))
+    .catch(() => showToast('코드: ' + S.code));
+}
+
+/* ── TOAST ── */
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ── PWA ── */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+}
+
+/* ── AUTO LOGIN ── */
+window.addEventListener('DOMContentLoaded', async () => {
+  const savedName = localStorage.getItem('dsg_name');
+  const savedCode = localStorage.getItem('dsg_code');
+  if (savedName && savedCode) {
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    S.myName = savedName; S.code = savedCode;
+    document.getElementById('hdr-name').textContent = savedName + '의 독서 모임';
+    document.getElementById('hdr-code').textContent = savedCode;
+    document.getElementById('share-code').textContent = savedCode;
+    await loadAll();
+    subscribeRealtime();
+  }
+});
+</script>
+</body>
+</html>
