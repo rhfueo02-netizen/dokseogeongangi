@@ -1023,14 +1023,18 @@ function updateEditStars() {
 async function submitEdit() {
   const bookId = parseInt(document.getElementById('edit-book-id').value);
   const topics = document.getElementById('edit-topics').value.split(',').map(t=>t.trim()).filter(Boolean);
-  const { error } = await sb.from('books').update({
+  const updates = {
     status:  document.getElementById('edit-status').value,
     review:  document.getElementById('edit-review').value.trim(),
     topics,
     rating:  editRating,
-  }).eq('id', bookId);
+  };
+  const { data, error } = await sb.from('books').update(updates).eq('id', bookId).select().single();
   if (error) { showToast('오류: ' + error.message); return; }
+  if (data) { const idx = S.books.findIndex(b => b.id === bookId); if (idx >= 0) S.books[idx] = data; }
   closeModal('modal-edit');
+  renderBooks();
+  renderJourney();
   showToast('수정됐어요 ✅');
 }
 
@@ -1042,7 +1046,11 @@ async function updateBookStatus(id, status) {
 
 async function deleteBook(id) {
   if (!confirm('정말 삭제할까요?')) return;
-  await sb.from('books').delete().eq('id', id);
+  const { error } = await sb.from('books').delete().eq('id', id);
+  if (error) { showToast('오류: ' + error.message); return; }
+  S.books = S.books.filter(b => b.id !== id);
+  renderBooks();
+  renderJourney();
   showToast('삭제됐어요');
 }
 
@@ -1116,7 +1124,10 @@ function renderVotes() {
 
 async function deleteVote(id) {
   if (!confirm('투표 후보를 삭제할까요?')) return;
-  await sb.from('votes').delete().eq('id', id);
+  const { error } = await sb.from('votes').delete().eq('id', id);
+  if (error) { showToast('오류: ' + error.message); return; }
+  S.votes = S.votes.filter(v => v.id !== id);
+  renderVotes();
   showToast('삭제됐어요');
 }
 
@@ -1127,9 +1138,22 @@ function renderMeetings() {
     const d = new Date(m.date + 'T00:00:00');
     return `<div class="meeting-item">
       <div class="date-box"><div class="date-month">${d.toLocaleString('ko-KR',{month:'short'})}</div><div class="date-day">${d.getDate()}</div></div>
-      <div><div class="meeting-book">${m.book||'미정'}</div>${m.memo?`<div class="meeting-memo">${m.memo}</div>`:''}</div>
+      <div style="flex:1;">
+        <div class="meeting-book">${m.book||'미정'}</div>
+        ${m.memo?`<div class="meeting-memo">${m.memo}</div>`:''}
+      </div>
+      <button onclick="deleteMeeting(${m.id})" style="font-size:11px;padding:4px 10px;border:1px solid #F09595;border-radius:6px;background:#FCEBEB;color:#A32D2D;cursor:pointer;flex-shrink:0;align-self:center;">삭제</button>
     </div>`;
   }).join('');
+}
+
+async function deleteMeeting(id) {
+  if (!confirm('일정을 삭제할까요?')) return;
+  const { error } = await sb.from('meetings').delete().eq('id', id);
+  if (error) { showToast('오류: ' + error.message); return; }
+  S.meetings = S.meetings.filter(m => m.id !== id);
+  renderMeetings();
+  showToast('삭제됐어요');
 }
 
 /* ── PATH ── */
